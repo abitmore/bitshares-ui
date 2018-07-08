@@ -27,6 +27,7 @@ import {ChainStore} from "bitsharesjs/es";
 import WithdrawModal from "../Modal/WithdrawModalNew";
 import {List} from "immutable";
 import DropDownMenu from "./HeaderDropdown";
+import {withRouter} from "react-router-dom";
 
 import {getLogo} from "branding";
 var logo = getLogo();
@@ -44,7 +45,9 @@ class Header extends React.Component {
         super();
         this.state = {
             active: props.location.pathname,
-            accountsListDropdownActive: false
+            accountsListDropdownActive: false,
+            dropdownActive: false,
+            dropdownSubmenuActive: false
         };
 
         this.unlisten = null;
@@ -109,7 +112,8 @@ class Header extends React.Component {
                 this.state.dropdownSubmenuActive ||
             nextState.accountsListDropdownActive !==
                 this.state.accountsListDropdownActive ||
-            nextProps.height !== this.props.height
+            nextProps.height !== this.props.height ||
+            nextProps.location.pathname !== this.props.location.pathname
         );
     }
 
@@ -165,21 +169,27 @@ class Header extends React.Component {
     }
 
     _closeAccountsListDropdown() {
-        this.setState({
-            accountsListDropdownActive: false
-        });
+        if (this.state.accountsListDropdownActive) {
+            this.setState({
+                accountsListDropdownActive: false
+            });
+        }
     }
 
     _closeMenuDropdown() {
-        this.setState({
-            dropdownActive: false
-        });
+        if (this.state.dropdownActive) {
+            this.setState({
+                dropdownActive: false
+            });
+        }
     }
 
     _closeDropdownSubmenu() {
-        this.setState({
-            dropdownSubmenuActive: false
-        });
+        if (this.state.dropdownSubmenuActive) {
+            this.setState({
+                dropdownSubmenuActive: false
+            });
+        }
     }
 
     _closeDropdown() {
@@ -241,7 +251,7 @@ class Header extends React.Component {
         });
     }
 
-    _toggleDropdownMenu(e) {
+    _toggleDropdownMenu() {
         this.setState({
             dropdownActive: !this.state.dropdownActive
         });
@@ -277,14 +287,6 @@ class Header extends React.Component {
         }
     }
 
-    _onAddContact() {
-        AccountActions.addAccountContact(this.props.currentAccount);
-    }
-
-    _onRemoveContact() {
-        AccountActions.removeAccountContact(this.props.currentAccount);
-    }
-
     render() {
         let {active} = this.state;
         let {
@@ -304,7 +306,6 @@ class Header extends React.Component {
             ? false
             : AccountStore.isMyAccount(a) ||
               (passwordLogin && currentAccount === passwordAccount);
-        const isContact = this.props.contacts.has(currentAccount);
         const enableDepositWithdraw =
             !!a &&
             Apis.instance() &&
@@ -1157,6 +1158,7 @@ class Header extends React.Component {
                                 passwordLogin={passwordLogin}
                                 onNavigate={this._onNavigate.bind(this)}
                                 isMyAccount={isMyAccount}
+                                contacts={this.props.contacts}
                                 showAccountLinks={showAccountLinks}
                                 tradeUrl={tradeUrl}
                                 currentAccount={currentAccount}
@@ -1195,7 +1197,7 @@ class Header extends React.Component {
     }
 }
 
-export default connect(Header, {
+Header = connect(Header, {
     listenTo() {
         return [
             AccountStore,
@@ -1231,3 +1233,5 @@ export default connect(Header, {
         };
     }
 });
+
+export default withRouter(Header);
