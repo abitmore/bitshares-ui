@@ -3,6 +3,7 @@ import {Link} from "react-router-dom";
 import ChainTypes from "./ChainTypes";
 import AssetWrapper from "./AssetWrapper";
 import AssetName from "./AssetName";
+import MarketsActions from "actions/MarketsActions";
 
 /**
  *  Given a base and quote asset, render a link to that market
@@ -22,11 +23,18 @@ class MarketLink extends React.Component {
         let marketID = quote.get("symbol") + "_" + base.get("symbol");
         let marketName = (
             <span>
-                <AssetName name={quote.get("symbol")} /> :{" "}
+                <AssetName name={quote.get("symbol")} /> /{" "}
                 <AssetName name={base.get("symbol")} />
             </span>
         );
-        return <Link to={`/market/${marketID}`}>{marketName}</Link>;
+        return (
+            <Link
+                to={`/market/${marketID}`}
+                onClick={() => MarketsActions.switchMarket()}
+            >
+                {marketName}
+            </Link>
+        );
     }
 }
 
@@ -34,6 +42,9 @@ MarketLink = AssetWrapper(MarketLink, {
     propNames: ["quote", "base"],
     defaultProps: {base: "1.3.0"}
 });
+
+/*
+This hangs the page on MarketLink import with firefox 62.0
 
 class ObjectWrapper extends React.Component {
     static propTypes = {
@@ -52,5 +63,6 @@ class ObjectWrapper extends React.Component {
 ObjectWrapper = BindToChainState(ObjectWrapper);
 
 MarketLink.ObjectWrapper = ObjectWrapper;
+*/
 
 export default MarketLink;

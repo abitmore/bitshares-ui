@@ -8,7 +8,7 @@ import WalletUnlockStore from "stores/WalletUnlockStore";
 import AltContainer from "alt-container";
 import Exchange from "./Exchange";
 import ChainTypes from "../Utility/ChainTypes";
-import {EmitterInstance} from "bitsharesjs/es";
+import {EmitterInstance} from "bitsharesjs";
 import BindToChainState from "../Utility/BindToChainState";
 import MarketsActions from "actions/MarketsActions";
 import {DataFeed} from "components/Exchange/tradingViewClasses";
@@ -30,6 +30,9 @@ class ExchangeContainer extends React.Component {
                     IntlStore
                 ]}
                 inject={{
+                    hasAnyPriceAlert: () =>
+                        SettingsStore.hasAnyPriceAlert(symbols[0], symbols[1]),
+                    priceAlert: () => SettingsStore.getState().priceAlert,
                     locale: () => IntlStore.getState().currentLocale,
                     lockedWalletState: () => {
                         return WalletUnlockStore.getState().locked;

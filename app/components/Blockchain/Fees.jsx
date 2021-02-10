@@ -8,15 +8,16 @@ import ChainTypes from "../Utility/ChainTypes";
 import BindToChainState from "../Utility/BindToChainState";
 import FormattedAsset from "../Utility/FormattedAsset";
 import {EquivalentValueComponent} from "../Utility/EquivalentValueComponent";
-import {ChainStore, ChainTypes as grapheneChainTypes} from "bitsharesjs/es";
+import {ChainStore, ChainTypes as grapheneChainTypes} from "bitsharesjs";
+import {Card} from "bitshares-ui-style-guide";
 const {operations} = grapheneChainTypes;
 let ops = Object.keys(operations);
 
 // Define groups and their corresponding operation ids
 let fee_grouping = {
-    general: [0, 25, 26, 27, 28, 32, 33, 37, 39, 40],
-    asset: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 38, 41],
-    market: [1, 2, 3, 4, 17, 18],
+    general: [0, 25, 26, 27, 28, 32, 33, 37, 39, 41, 49, 50, 52],
+    asset: [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 38, 43, 44, 47, 48],
+    market: [1, 2, 3, 4, 45, 46],
     account: [5, 6, 7, 8, 9],
     business: [20, 21, 22, 23, 24, 29, 30, 31, 34, 35, 36]
 };
@@ -50,15 +51,17 @@ class FeeGroup extends React.Component {
         let network_fee = globalObject.parameters.network_percent_of_fee / 1e4;
         let scale = current_fees.scale;
         let feesRaw = current_fees.parameters;
-        let preferredUnit = settings.get("unit") || core_asset.get("symbol");
+        let preferredUnit =
+            settings.get("fee_asset") || core_asset.get("symbol");
 
         let trxTypes = counterpart.translate("transaction.trxTypes");
 
-        let fees = opIds.map(feeIdx => {
-            if (feeIdx >= feesRaw.length) {
+        let fees = opIds.map(opID => {
+            let feeIdx = feesRaw.findIndex(f => f[0] === opID);
+            if (feeIdx === -1) {
                 console.warn(
                     "Asking for non-existing fee id %d! Check group settings in Fees.jsx",
-                    feeIdx
+                    opID
                 );
                 return; // FIXME, if I ask for a fee that does not exist?
             }
@@ -81,7 +84,7 @@ class FeeGroup extends React.Component {
             let labelClass = classNames("label", "info");
 
             for (let key in fee) {
-                let amount = fee[key] * scale / 1e4;
+                let amount = (fee[key] * scale) / 1e4;
                 let amountForLTM = amount * feeRateForLTM;
                 let feeTypes = counterpart.translate("transaction.feeTypes");
                 let assetAmount = amount ? (
@@ -128,36 +131,34 @@ class FeeGroup extends React.Component {
                 }
 
                 if (ltm_required.indexOf(opId) < 0) {
-                    rows.push(
-                        <tr
-                            key={opId.toString() + key}
-                            className={
-                                feeTypes[key] === "Annual Membership"
-                                    ? "linethrough"
-                                    : ""
-                            }
-                        >
-                            {title}
-                            <td>{feeTypes[key]}</td>
-                            <td style={{textAlign: "right"}}>
-                                {assetAmount}
-                                {amount !== 0 &&
-                                    preferredUnit !== "BTS" && [
-                                        " / ",
-                                        equivalentAmount
-                                    ]}
-                            </td>
-                            <td style={{textAlign: "right"}}>
-                                {feeIdx !== 8 ? assetAmountLTM : null}
-                                {feeIdx !== 8 &&
+                    if (feeTypes[key] != "Annual Membership") {
+                        rows.push(
+                            <tr key={opId.toString() + key}>
+                                {title}
+                                <td>{feeTypes[key]}</td>
+                                <td style={{textAlign: "right"}}>
+                                    {assetAmount}
+                                    {amount !== 0 && preferredUnit !== "BTS" ? (
+                                        <span>
+                                            &nbsp;/&nbsp;
+                                            {equivalentAmount}
+                                        </span>
+                                    ) : null}
+                                </td>
+                                <td style={{textAlign: "right"}}>
+                                    {feeIdx !== 8 ? assetAmountLTM : null}
+                                    {feeIdx !== 8 &&
                                     amount !== 0 &&
-                                    preferredUnit !== "BTS" && [
-                                        " / ",
-                                        equivalentAmountLTM
-                                    ]}
-                            </td>
-                        </tr>
-                    );
+                                    preferredUnit !== "BTS" ? (
+                                        <span>
+                                            &nbsp;/&nbsp;
+                                            {equivalentAmountLTM}
+                                        </span>
+                                    ) : null}
+                                </td>
+                            </tr>
+                        );
+                    }
                 } else {
                     rows.push(
                         <tr key={opId.toString() + key}>
@@ -168,11 +169,12 @@ class FeeGroup extends React.Component {
                             </td>
                             <td style={{textAlign: "right"}}>
                                 {assetAmountLTM}
-                                {amount !== 0 &&
-                                    preferredUnit !== "BTS" && [
-                                        " / ",
-                                        equivalentAmountLTM
-                                    ]}
+                                {amount !== 0 && preferredUnit !== "BTS" ? (
+                                    <span>
+                                        &nbsp;/&nbsp;
+                                        {equivalentAmountLTM}
+                                    </span>
+                                ) : null}
                             </td>
                         </tr>
                     );
@@ -183,7 +185,7 @@ class FeeGroup extends React.Component {
 
         return (
             <div className="asset-card">
-                <div className="card-divider">{this.props.title}</div>
+                <Card>{this.props.title.toUpperCase()}</Card>
                 <table className="table">
                     <thead>
                         <tr>

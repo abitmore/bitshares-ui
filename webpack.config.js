@@ -66,7 +66,6 @@ module.exports = function(env) {
         regexString = regexString + (l + (i < locales.length - 1 ? "|" : ""));
     });
     const localeRegex = new RegExp(regexString);
-
     var plugins = [
         new HtmlWebpackPlugin({
             template: "!!handlebars-loader!app/assets/index.hbs",
@@ -77,18 +76,18 @@ module.exports = function(env) {
                 ELECTRON: !!env.electron
             }
         }),
+
         new webpack.DefinePlugin({
             APP_VERSION: JSON.stringify(__VERSION__),
             __ELECTRON__: !!env.electron,
             __HASH_HISTORY__: !!env.hash,
             __BASE_URL__: JSON.stringify(baseUrl),
-            __UI_API__: JSON.stringify(
-                env.apiUrl || "https://ui.bitshares.eu/api"
-            ),
+            __UI_API__: JSON.stringify(env.apiUrl),
             __TESTNET__: !!env.testnet,
             __DEPRECATED__: !!env.deprecated,
             DEFAULT_SYMBOL: "BTS",
-            __GIT_BRANCH__: JSON.stringify(git.branch())
+            __GIT_BRANCH__: JSON.stringify(git.branch()),
+            __PERFORMANCE_DEVTOOL__: !!env.perf_dev
         }),
         new webpack.ContextReplacementPlugin(
             /moment[\/\\]locale$/,
@@ -190,12 +189,50 @@ module.exports = function(env) {
                     ),
                     to: path.join(outputPath, "dictionary.json"),
                     toType: "file"
+                },
+                {
+                    from: path.join(
+                        root_dir,
+                        "app",
+                        "assets",
+                        "outdated_browser.css"
+                    ),
+                    to: path.join(outputPath, "outdated_browser.css"),
+                    toType: "file"
                 }
             ],
             {}
         )
     );
 
+    /* Workaround in which the github pages server will find a file when it looks
+    for /deposit-withdraw that will redirect to the hash router's equivalent
+    /#/deposit-withdraw */
+
+    if (env.hash)
+        plugins.push(
+            new CopyWebpackPlugin(
+                [
+                    {
+                        from: path.join(
+                            root_dir,
+                            "app",
+                            "components",
+                            "DepositWithdraw",
+                            "blocktrades",
+                            "index.html"
+                        ),
+                        to: path.join(
+                            outputPath,
+                            "deposit-withdraw",
+                            "index.html"
+                        ),
+                        toType: "file"
+                    }
+                ],
+                {}
+            )
+        );
     var config = {
         mode: env.noUgly ? "none" : env.prod ? "production" : "development",
         entry: {
@@ -213,7 +250,8 @@ module.exports = function(env) {
             filename: env.prod ? "[name].[chunkhash].js" : "[name].js",
             chunkFilename: env.prod ? "[name].[chunkhash].js" : "[name].js",
             pathinfo: !env.prod,
-            sourceMapFilename: "[name].js.map"
+            sourceMapFilename: "[name].js.map",
+            globalObject: "this"
         },
         optimization: {
             splitChunks: {
@@ -233,9 +271,18 @@ module.exports = function(env) {
                 }
             }
         },
-        devtool: env.noUgly || !env.prod ? "cheap-module-source-map" : "none",
+        devtool:
+            env.noUgly || !env.prod
+                ? "inline-cheap-module-source-map"
+                : "cheap-source-map",
         module: {
             rules: [
+                {
+                    // Test for a polyfill (or any file) and it won't be included in your
+                    // bundle
+                    test: /node-fetch/,
+                    use: "null-loader"
+                },
                 {
                     test: /\.jsx$/,
                     include: [
@@ -259,7 +306,9 @@ module.exports = function(env) {
                     test: /\.js$/,
                     include: [
                         path.join(root_dir, "app"),
-                        path.join(root_dir, "node_modules/react-datepicker2")
+                        path.join(root_dir, "node_modules/react-datepicker2"),
+                        path.join(root_dir, "node_modules/alt-container"),
+                        path.join(root_dir, "node_modules/alt-react")
                     ],
                     use: [
                         {
@@ -271,6 +320,11 @@ module.exports = function(env) {
                             }
                         }
                     ]
+                },
+                {
+                    test: /\.mjs$/,
+                    include: /node_modules/,
+                    type: "javascript/auto"
                 },
                 {test: /\.coffee$/, loader: "coffee-loader"},
                 {
@@ -318,6 +372,10 @@ module.exports = function(env) {
                 },
                 {
                     test: /.*\.svg$/,
+                    exclude: [
+                        path.resolve(root_dir, "app/assets/model-type-images"),
+                        path.resolve(root_dir, "app/assets/bin-file")
+                    ],
                     use: [
                         {
                             loader: "svg-inline-loader"
@@ -358,7 +416,23 @@ module.exports = function(env) {
                 path.resolve(root_dir, "app/lib"),
                 "node_modules"
             ],
-            extensions: [".js", ".jsx", ".coffee", ".json"]
+            extensions: [".js", ".jsx", ".coffee", ".json"],
+            mainFields: ["module", "jsnext:main", "browser", "main"],
+            alias: {
+                sanitize$: "xss",
+                moment$: path.resolve(
+                    root_dir,
+                    "node_modules/moment/moment.js"
+                ),
+                bitsharesjs$: path.resolve(
+                    root_dir,
+                    "node_modules/bitsharesjs/"
+                ),
+                "bitshares-ui-style-guide$": path.resolve(
+                    root_dir,
+                    "node_modules/bitshares-ui-style-guide/dist/main.js"
+                )
+            }
         },
         plugins: plugins
     };

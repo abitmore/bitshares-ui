@@ -1,8 +1,8 @@
 import React, {Component} from "react";
 import {connect} from "alt-react";
 import cname from "classnames";
-import notify from "actions/NotificationActions";
-import {PrivateKey, Aes, PublicKey, hash} from "bitsharesjs/es";
+import {PrivateKey, Aes, PublicKey, FetchChain, hash} from "bitsharesjs";
+import AccountApi from "api/accountApi";
 import {ChainConfig} from "bitsharesjs-ws";
 import PrivateKeyStore from "stores/PrivateKeyStore";
 import WalletUnlockActions from "actions/WalletUnlockActions";
@@ -17,7 +17,11 @@ import BalanceClaimAssetTotal from "components/Wallet/BalanceClaimAssetTotal";
 import WalletDb from "stores/WalletDb";
 import ImportKeysStore from "stores/ImportKeysStore";
 
+import {Notification} from "bitshares-ui-style-guide";
+
 import GenesisFilter from "chain/GenesisFilter";
+
+import {Button, Input} from "bitshares-ui-style-guide";
 
 require("./ImportKeys.scss");
 
@@ -27,6 +31,8 @@ const KeyCount = ({key_count}) => {
     if (!key_count) return <span />;
     return <span>Found {key_count} private keys</span>;
 };
+
+const WIF_KEY_LENGTH = 51;
 
 class ImportKeys extends Component {
     constructor() {
@@ -56,6 +62,8 @@ class ImportKeys extends Component {
             import_password_message: null,
             imported_keys_public: {},
             key_text_message: null,
+            associatedAccount: null,
+            errorTextMessage: null,
             genesis_filtering: false,
             genesis_filter_status: [],
             genesis_filter_finished: undefined,
@@ -71,7 +79,7 @@ class ImportKeys extends Component {
 
     onWif(event) {
         event.preventDefault();
-        let value = this.refs.wifInput.value;
+        const value = this.refs.wifInput.state.value;
         this.addByPattern(value);
     }
 
@@ -240,9 +248,8 @@ class ImportKeys extends Component {
                                 filter_status[
                                     filter_status.length - 1
                                 ] = status;
-                            else
-                                // new account
-                                filter_status.push(status);
+                            // new account
+                            else filter_status.push(status);
                         }
                         update_state({genesis_filter_status: filter_status});
                     });
@@ -403,7 +410,9 @@ class ImportKeys extends Component {
                 } missing encrypted_private_keys`;
                 console.error(error);
                 if (format_error1_once) {
-                    notify.error(error);
+                    Notification.error({
+                        message: error
+                    });
                     format_error1_once = false;
                 }
                 continue;
@@ -486,10 +495,15 @@ class ImportKeys extends Component {
                 } catch (e) {
                     console.log(e, e.stack);
                     let message = e.message || e;
-                    notify.error(
-                        `Account ${account_name} had a private key import error: ` +
-                            message
-                    );
+                    Notification.error({
+                        message: counterpart.translate(
+                            "notifications.import_keys_error",
+                            {
+                                account_name: account_name,
+                                error_msg: message
+                            }
+                        )
+                    });
                 }
             }
         }
@@ -519,7 +533,11 @@ class ImportKeys extends Component {
             dups[public_key_string] = true;
         }
         if (Object.keys(this.state.imported_keys_public).length === 0) {
-            notify.error("This wallet has already been imported");
+            Notification.error({
+                message: counterpart.translate(
+                    "notifications.import_keys_already_imported"
+                )
+            });
             return;
         }
         let keys_to_account = this.state.keys_to_account;
@@ -558,11 +576,15 @@ class ImportKeys extends Component {
                 ImportKeysStore.importing(false);
                 let import_count = private_key_objs.length;
 
-                notify.success(
-                    counterpart.translate("wallet.import_key_success", {
-                        count: import_count
-                    })
-                );
+                Notification.success({
+                    message: counterpart.translate(
+                        "wallet.import_key_success",
+                        {
+                            count: import_count
+                        }
+                    )
+                });
+
                 this.setState({
                     importSuccess: true
                 });
@@ -575,13 +597,35 @@ class ImportKeys extends Component {
                 try {
                     message = error.target.error.message;
                 } catch (e) {}
-                notify.error(`Key import error: ${message}`);
+
+                Notification.error({
+                    message: counterpart.translate(
+                        "notifications.import_keys_error_unknown",
+                        {
+                            error_msg: message
+                        }
+                    )
+                });
             });
     }
 
     addByPattern(contents) {
-        if (!contents) return false;
-
+        if (!contents) {
+            this.setState({
+                errorTextMessage: counterpart.translate(
+                    "wallet.wif_import_error"
+                )
+            });
+            return false;
+        }
+        if (contents.length !== WIF_KEY_LENGTH) {
+            this.setState({
+                errorTextMessage: counterpart.translate(
+                    "wallet.wif_length_error"
+                )
+            });
+            return false;
+        }
         let count = 0,
             invalid_count = 0;
         let wif_regex = /5[HJK][1-9A-Za-z]{49}/g;
@@ -596,6 +640,25 @@ class ImportKeys extends Component {
                     account_names: [],
                     public_key_string
                 };
+
+                let accountName = [];
+                AccountApi.lookupAccountByPublicKey(public_key_string).then(
+                    async result => {
+                        let batch;
+                        batch = result[0].map(value => {
+                            return FetchChain("getAccount", value);
+                        });
+                        let accountNames = await Promise.all(batch);
+                        accountNames.map(value => {
+                            let name = value.get("name");
+                            if (accountName.indexOf(name) === -1) {
+                                accountName.push(name);
+                            }
+                        });
+                        this.setState({associatedAccount: accountName});
+                    }
+                );
+
                 count++;
             } catch (e) {
                 invalid_count++;
@@ -616,7 +679,10 @@ class ImportKeys extends Component {
             () => this.updateOnChange()
         );
         // removes the message on the next render
-        this.state.key_text_message = null;
+        this.setState({
+            key_text_message: null,
+            errorTextMessage: null
+        });
         return count;
     }
 
@@ -636,12 +702,9 @@ class ImportKeys extends Component {
                 <BalanceClaimActive />
 
                 <div style={{paddingTop: 15}}>
-                    <div
-                        className="button success"
-                        onClick={this.onCancel.bind(this)}
-                    >
+                    <Button type="primary" onClick={this.onCancel.bind(this)}>
                         <Translate content="wallet.done" />
-                    </div>
+                    </Button>
                 </div>
             </div>
         );
@@ -684,7 +747,7 @@ class ImportKeys extends Component {
                                     <span>
                                         Filtering{" "}
                                         {Math.round(
-                                            status.count / status.total * 100
+                                            (status.count / status.total) * 100
                                         )}{" "}
                                         %{" "}
                                     </span>
@@ -718,9 +781,9 @@ class ImportKeys extends Component {
         }
 
         let cancelButton = (
-            <div className="button success" onClick={this.onCancel.bind(this)}>
+            <Button onClick={this.onCancel.bind(this)}>
                 <Translate content="wallet.cancel" />
-            </div>
+            </Button>
         );
 
         let tabIndex = 1;
@@ -743,11 +806,26 @@ class ImportKeys extends Component {
                     {!import_ready ? null : (
                         <span>
                             {" "}
-                            (<a onClick={this.reset.bind(this)}>
+                            (
+                            <a onClick={this.reset.bind(this)}>
                                 <Translate content="wallet.reset" />
-                            </a>)
+                            </a>
+                            )
                         </span>
                     )}
+                    <span>
+                        <br />
+                        {this.state.associatedAccount && (
+                            <div>
+                                <Translate content="wallet.wif_associated_accounts" />
+                                {this.state.associatedAccount.map(
+                                    (value, key) => {
+                                        return <p key={key}>{value}</p>;
+                                    }
+                                )}
+                            </div>
+                        )}
+                    </span>
                 </div>
 
                 {account_rows ? (
@@ -786,19 +864,25 @@ class ImportKeys extends Component {
                                             component="label"
                                             content="wallet.paste_private"
                                         />
-                                        <input
+                                        <Input
                                             ref="wifInput"
                                             type="password"
                                             id="wif"
                                             tabIndex={tabIndex++}
+                                            style={{marginBottom: "16px"}}
                                         />
-
-                                        <button
-                                            className="button"
-                                            type="submit"
+                                        <div className="importError">
+                                            <span className="red">
+                                                {this.state.errorTextMessage}
+                                            </span>
+                                        </div>
+                                        <Button
+                                            type="primary"
+                                            htmlType="submit"
+                                            style={{marginRight: "16px"}}
                                         >
                                             <Translate content="wallet.submit" />
-                                        </button>
+                                        </Button>
                                         {cancelButton}
                                     </form>
                                 ) : (
@@ -811,13 +895,15 @@ class ImportKeys extends Component {
                                             <Translate content="wallet.bts_09_export" />
                                             {this.state.no_file ? null : (
                                                 <span>
-                                                    &nbsp; (<a
+                                                    &nbsp; (
+                                                    <a
                                                         onClick={this.reset.bind(
                                                             this
                                                         )}
                                                     >
                                                         Reset
-                                                    </a>)
+                                                    </a>
+                                                    )
                                                 </span>
                                             )}
                                         </label>
@@ -837,7 +923,7 @@ class ImportKeys extends Component {
                                         </div>
                                         {!this.state.no_file ? (
                                             <div>
-                                                <input
+                                                <Input
                                                     type="password"
                                                     ref="password"
                                                     key={
@@ -870,15 +956,14 @@ class ImportKeys extends Component {
                                             </div>
                                         ) : null}
                                         <div className="button-group">
-                                            <button
-                                                className={cname("button", {
-                                                    disabled: !!this.state
-                                                        .no_file
-                                                })}
-                                                type="submit"
+                                            <Button
+                                                type="primary"
+                                                disabled={!!this.state.no_file}
+                                                htmlType="submit"
+                                                style={{marginRight: "16px"}}
                                             >
                                                 <Translate content="wallet.submit" />
-                                            </button>
+                                            </Button>
                                             {cancelButton}
                                         </div>
                                     </form>
@@ -941,15 +1026,18 @@ class ImportKeys extends Component {
     }
 }
 
-ImportKeys = connect(ImportKeys, {
-    listenTo() {
-        return [ImportKeysStore];
-    },
-    getProps() {
-        return {
-            importing: ImportKeysStore.getState().importing
-        };
+ImportKeys = connect(
+    ImportKeys,
+    {
+        listenTo() {
+            return [ImportKeysStore];
+        },
+        getProps() {
+            return {
+                importing: ImportKeysStore.getState().importing
+            };
+        }
     }
-});
+);
 
 export default ImportKeys;

@@ -1,5 +1,6 @@
 import React from "react";
 import {connect} from "alt-react";
+import counterpart from "counterpart";
 import AccountStore from "stores/AccountStore";
 import {Link} from "react-router-dom";
 import Translate from "react-translate-component";
@@ -7,13 +8,13 @@ import TranslateWithLinks from "./Utility/TranslateWithLinks";
 import {isIncognito} from "feature_detect";
 import SettingsActions from "actions/SettingsActions";
 import WalletUnlockActions from "actions/WalletUnlockActions";
-import ActionSheet from "react-foundation-apps/src/action-sheet";
 import SettingsStore from "stores/SettingsStore";
 import IntlActions from "actions/IntlActions";
 import CreateAccount from "./Account/CreateAccount";
 import CreateAccountPassword from "./Account/CreateAccountPassword";
 import {Route} from "react-router-dom";
-import {getWalletName, getLogo} from "branding";
+import {getWalletName, getLogo, getAllowedLogins} from "branding";
+import {Select, Row, Col, Icon} from "bitshares-ui-style-guide";
 var logo = getLogo();
 
 const FlagImage = ({flag, width = 50, height = 50}) => {
@@ -35,6 +36,9 @@ class LoginSelector extends React.Component {
             locales: SettingsStore.getState().defaults.locale,
             currentLocale: SettingsStore.getState().settings.get("locale")
         };
+        this.unmounted = false;
+
+        this.handleLanguageSelect = this.handleLanguageSelect.bind(this);
     }
 
     // componentDidUpdate() {
@@ -56,63 +60,54 @@ class LoginSelector extends React.Component {
 
     componentWillMount() {
         isIncognito(incognito => {
-            this.setState({incognito});
+            if (!this.unmounted) {
+                this.setState({incognito});
+            }
         });
+    }
+
+    componentWillUnmount() {
+        this.unmounted = true;
     }
 
     onSelect(route) {
         this.props.history.push("/create-account/" + route);
     }
 
+    handleLanguageSelect(locale) {
+        IntlActions.switchLocale(locale);
+        this.setState({
+            currentLocale: locale
+        });
+    }
+
+    languagesFilter(input, option) {
+        return (
+            option.props.language.toLowerCase().indexOf(input.toLowerCase()) >=
+            0
+        );
+    }
+
     render() {
         const translator = require("counterpart");
 
         const flagDropdown = (
-            <ActionSheet>
-                <ActionSheet.Button title="" style={{width: "64px"}}>
-                    <a
-                        style={{padding: "1rem", border: "none"}}
-                        className="button arrow-down"
+            <Select
+                showSearch
+                filterOption={this.languagesFilter}
+                value={this.state.currentLocale}
+                onChange={this.handleLanguageSelect}
+                style={{width: "123px", marginBottom: "16px"}}
+            >
+                {this.state.locales.map(locale => (
+                    <Select.Option
+                        key={locale}
+                        language={counterpart.translate("languages." + locale)}
                     >
-                        <FlagImage flag={this.state.currentLocale} />
-                    </a>
-                </ActionSheet.Button>
-                <ActionSheet.Content>
-                    <ul className="no-first-element-top-border">
-                        {this.state.locales.map(locale => {
-                            return (
-                                <li key={locale}>
-                                    <a
-                                        onClick={e => {
-                                            e.preventDefault();
-                                            IntlActions.switchLocale(locale);
-                                            this.setState({
-                                                currentLocale: locale
-                                            });
-                                        }}
-                                    >
-                                        <div className="table-cell">
-                                            <FlagImage
-                                                width="20"
-                                                height="20"
-                                                flag={locale}
-                                            />
-                                        </div>
-                                        <div
-                                            className="table-cell"
-                                            style={{paddingLeft: 10}}
-                                        >
-                                            <Translate
-                                                content={"languages." + locale}
-                                            />
-                                        </div>
-                                    </a>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                </ActionSheet.Content>
-            </ActionSheet>
+                        {counterpart.translate("languages." + locale)}
+                    </Select.Option>
+                ))}
+            </Select>
         );
 
         return (
@@ -145,13 +140,21 @@ class LoginSelector extends React.Component {
                             <div className="shrink text-center">
                                 <div className="grp-menu-item overflow-visible account-drop-down">
                                     <div
-                                        className="grp-menu-item overflow-visible"
+                                        className="grp-menu-item overflow-visible login-selector--language-select"
                                         style={{margin: "0 auto"}}
                                         data-intro={translator.translate(
                                             "walkthrough.language_flag"
                                         )}
                                     >
-                                        {flagDropdown}
+                                        <Row className="login-selector--language-select--wrapper">
+                                            <Col span={4}>
+                                                <Icon
+                                                    type="global"
+                                                    className="login-selector--language-select--icon"
+                                                />
+                                            </Col>
+                                            <Col span={20}>{flagDropdown}</Col>
+                                        </Row>
                                     </div>
                                 </div>
                             </div>
@@ -160,7 +163,11 @@ class LoginSelector extends React.Component {
                         <div className="grid-block account-login-options">
                             <Link
                                 id="account_login_button"
-                                to="/create-account/password"
+                                to={
+                                    getAllowedLogins().includes("password")
+                                        ? "/create-account/password"
+                                        : "/create-account/wallet"
+                                }
                                 className="button primary"
                                 data-intro={translator.translate(
                                     "walkthrough.create_cloud_wallet"
@@ -185,46 +192,51 @@ class LoginSelector extends React.Component {
                             </span>
                         </div>
 
-                        <div className="additional-account-options">
-                            <h5 style={{textAlign: "center"}}>
-                                <TranslateWithLinks
-                                    string="account.optional.formatter"
-                                    keys={[
-                                        {
-                                            type: "link",
-                                            value: "/wallet/backup/restore",
-                                            translation:
-                                                "account.optional.restore_link",
-                                            dataIntro: translator.translate(
-                                                "walkthrough.restore_account"
-                                            ),
-                                            arg: "restore_link"
-                                        },
-                                        {
-                                            type: "link",
-                                            value: "/create-account/wallet",
-                                            translation:
-                                                "account.optional.restore_form",
-                                            dataIntro: translator.translate(
-                                                "walkthrough.create_local_wallet"
-                                            ),
-                                            arg: "restore_form"
-                                        }
-                                    ]}
-                                />
-                            </h5>
-                        </div>
-
-                        <Route
-                            path="/create-account/wallet"
-                            exact
-                            component={CreateAccount}
-                        />
-                        <Route
-                            path="/create-account/password"
-                            exact
-                            component={CreateAccountPassword}
-                        />
+                        {getAllowedLogins().includes("wallet") && (
+                            <div className="additional-account-options">
+                                <h5 style={{textAlign: "center"}}>
+                                    <TranslateWithLinks
+                                        string="account.optional.formatter"
+                                        keys={[
+                                            {
+                                                type: "link",
+                                                value: "/wallet/backup/restore",
+                                                translation:
+                                                    "account.optional.restore_link",
+                                                dataIntro: translator.translate(
+                                                    "walkthrough.restore_account"
+                                                ),
+                                                arg: "restore_link"
+                                            },
+                                            {
+                                                type: "link",
+                                                value: "/create-account/wallet",
+                                                translation:
+                                                    "account.optional.restore_form",
+                                                dataIntro: translator.translate(
+                                                    "walkthrough.create_local_wallet"
+                                                ),
+                                                arg: "restore_form"
+                                            }
+                                        ]}
+                                    />
+                                </h5>
+                            </div>
+                        )}
+                        {getAllowedLogins().includes("wallet") && (
+                            <Route
+                                path="/create-account/wallet"
+                                exact
+                                component={CreateAccount}
+                            />
+                        )}
+                        {getAllowedLogins().includes("password") && (
+                            <Route
+                                path="/create-account/password"
+                                exact
+                                component={CreateAccountPassword}
+                            />
+                        )}
                     </div>
                 </div>
             </div>
@@ -232,15 +244,18 @@ class LoginSelector extends React.Component {
     }
 }
 
-export default connect(LoginSelector, {
-    listenTo() {
-        return [AccountStore];
-    },
-    getProps() {
-        return {
-            currentAccount:
-                AccountStore.getState().currentAccount ||
-                AccountStore.getState().passwordAccount
-        };
+export default connect(
+    LoginSelector,
+    {
+        listenTo() {
+            return [AccountStore];
+        },
+        getProps() {
+            return {
+                currentAccount:
+                    AccountStore.getState().currentAccount ||
+                    AccountStore.getState().passwordAccount
+            };
+        }
     }
-});
+);

@@ -5,7 +5,7 @@ import {
     TransactionHelper,
     ChainTypes,
     ops
-} from "bitsharesjs/es";
+} from "bitsharesjs";
 import {Price, Asset} from "common/MarketClasses";
 const {operations} = ChainTypes;
 
@@ -13,7 +13,11 @@ function estimateFeeAsync(type, options = null, data = {}) {
     return new Promise((res, rej) => {
         FetchChain("getObject", "2.0.0")
             .then(obj => {
-                res(estimateFee(type, options, obj, data));
+                try {
+                    res(estimateFee(type, options, obj, data));
+                } catch (err) {
+                    rej(err);
+                }
             })
             .catch(rej);
     });
@@ -25,17 +29,19 @@ function checkFeePoolAsync({
     options = null,
     data
 } = {}) {
-    return new Promise(res => {
+    return new Promise((res, rej) => {
         if (assetID === "1.3.0") {
             res(true);
         } else {
             Promise.all([
                 estimateFeeAsync(type, options, data),
                 FetchChain("getObject", assetID.replace(/^1\./, "2."))
-            ]).then(result => {
-                const [fee, dynamicObject] = result;
-                res(parseInt(dynamicObject.get("fee_pool"), 10) >= fee);
-            });
+            ])
+                .then(result => {
+                    const [fee, dynamicObject] = result;
+                    res(parseInt(dynamicObject.get("fee_pool"), 10) >= fee);
+                })
+                .catch(rej);
         }
     });
 }
@@ -48,7 +54,8 @@ function checkFeeStatusAsync({
     feeID = "1.3.0",
     type = "transfer",
     options = null,
-    data
+    data,
+    operationsCount = 1
 } = {}) {
     let key =
         accountID +
@@ -59,7 +66,9 @@ function checkFeeStatusAsync({
         "_" +
         JSON.stringify(options) +
         "_" +
-        JSON.stringify(data);
+        JSON.stringify(data) +
+        "_" +
+        operationsCount;
 
     if (asyncCache[key]) {
         if (asyncCache[key].result) {
@@ -95,14 +104,14 @@ function checkFeeStatusAsync({
                 if (feeID === "1.3.0" && !coreBalanceID) {
                     asyncCache[key].queue.forEach(promise => {
                         promise.res({
-                            fee: new Asset({amount: coreFee}),
+                            fee: new Asset({amount: coreFee * operationsCount}),
                             hasBalance,
                             hasPoolBalance
                         });
                     });
                     asyncCache[key] = {
                         result: {
-                            fee: new Asset({amount: coreFee}),
+                            fee: new Asset({amount: coreFee * operationsCount}),
                             hasBalance,
                             hasPoolBalance
                         }
@@ -120,7 +129,7 @@ function checkFeeStatusAsync({
                     feeBalanceID ? FetchChain("getObject", feeBalanceID) : null
                 ]).then(balances => {
                     let [coreBalance, feeBalance] = balances;
-                    let fee = new Asset({amount: coreFee});
+                    let fee = new Asset({amount: coreFee * operationsCount});
                     let hasValidCER = true;
 
                     /*
@@ -161,6 +170,12 @@ function checkFeeStatusAsync({
                         }
                     }
 
+                    // console.log(
+                    //     "fee.getAmount",
+                    //     fee.getAmount(),
+                    //     operationsCount
+                    // );
+
                     if (
                         feeBalance &&
                         feeBalance.get("balance") >= fee.getAmount()
@@ -183,9 +198,9 @@ function checkFeeStatusAsync({
                     }, feeStatusTTL);
                 });
             })
-            .catch(() => {
+            .catch(err => {
                 asyncCache[key].queue.forEach(promise => {
-                    promise.rej();
+                    promise.rej(err);
                 });
             });
     });
@@ -212,9 +227,23 @@ function estimateFee(op_type, options, globalObject, data = {}) {
         return _feeCache[cacheKey];
     }
     let op_code = operations[op_type];
-    let currentFees = globalObject
-        .getIn(["parameters", "current_fees", "parameters", op_code, 1])
-        .toJS();
+    let currentFees = globalObject.getIn([
+        "parameters",
+        "current_fees",
+        "parameters",
+        op_code,
+        1
+    ]);
+    /* Default to transfer fees if the op is missing in globalObject */
+    if (!currentFees)
+        currentFees = globalObject.getIn([
+            "parameters",
+            "current_fees",
+            "parameters",
+            0,
+            1
+        ]);
+    currentFees = currentFees.toJS();
 
     let fee = 0;
     if (currentFees.fee) {
@@ -262,7 +291,7 @@ function estimateFee(op_type, options, globalObject, data = {}) {
                         ops.memo_data.toHex(serialized)
                     );
                     const byteLength = Buffer.byteLength(stringified, "hex");
-                    fee += optionFee * byteLength / 1024;
+                    fee += (optionFee * byteLength) / 1024;
 
                     _prevContent = data.content;
                 }
@@ -273,8 +302,7 @@ function estimateFee(op_type, options, globalObject, data = {}) {
     }
     // console.timeEnd("estimateFee");
     fee =
-        fee *
-        globalObject.getIn(["parameters", "current_fees", "scale"]) /
+        (fee * globalObject.getIn(["parameters", "current_fees", "scale"])) /
         10000;
     _feeCache[cacheKey] = fee;
     setTimeout(() => {
@@ -318,7 +346,7 @@ function shouldPayFeeWithAssetAsync(fromAccount, feeAmount) {
         const balanceID = fromAccount.getIn(["balances", feeAmount.asset_id]);
         return FetchChain("getObject", balanceID).then(balanceObject => {
             const balance = balanceObject.get("balance");
-            if (balance <= feeAmount.amount) return true;
+            return balance <= feeAmount.amount;
         });
     }
     return new Promise(resolve => resolve(false));

@@ -4,6 +4,7 @@ import counterpart from "counterpart";
 import utils from "common/utils";
 import {withRouter} from "react-router-dom";
 import PropTypes from "prop-types";
+import sanitize from "sanitize";
 
 let req = require.context("../../help", true, /\.md/);
 let HelpData = {};
@@ -29,26 +30,38 @@ function split_into_sections(str) {
 
 function adjust_links(str) {
     return str.replace(/\<a\shref\=\"(.+?)\"/gi, (match, text) => {
+        text = utils.sanitize(text);
+
         if (text.indexOf((__HASH_HISTORY__ ? "#" : "") + "/") === 0)
             return `<a href="${text}" onclick="_onClickLink(event)"`;
         if (text.indexOf("http") === 0)
-            return `<a href="${text}" rel="noopener noreferrer" target="_blank"`;
+            return `<a href="${text}" rel="noopener noreferrer" class="external-link" target="_blank"`;
         let page = endsWith(text, ".md")
             ? text.substr(0, text.length - 3)
             : text;
-        let res = `<a href="${
+        if (page.startsWith("/borrow")) {
+            // pass
+        } else if (!page.startsWith("/help")) {
+            page = "/help/" + page;
+        } else if (page.startsWith("help")) {
+            page = "/" + page;
+        }
+        return `<a href="${
             __HASH_HISTORY__ ? "#" : ""
-        }/help/${page}" onclick="_onClickLink(event)"`;
-        return res;
+        }${page}" onclick="_onClickLink(event)"`;
     });
 }
 
 // console.log("-- HelpData -->", HelpData);
 
-class HelpContent extends React.Component {
+class HelpContent extends React.PureComponent {
     static propTypes = {
         path: PropTypes.string.isRequired,
         section: PropTypes.string
+    };
+
+    static defaultProps = {
+        hide_issuer: "false"
     };
 
     constructor(props) {
@@ -60,8 +73,7 @@ class HelpContent extends React.Component {
         let locale = this.props.locale || counterpart.getLocale() || "en";
 
         // Only load helpData for the current locale as well as the fallback 'en'
-        req
-            .keys()
+        req.keys()
             .filter(a => {
                 return (
                     a.indexOf(`/${locale}/`) !== -1 || a.indexOf("/en/") !== -1
@@ -97,6 +109,8 @@ class HelpContent extends React.Component {
         return str.replace(/(\{.+?\})/gi, (match, text) => {
             let key = text.substr(1, text.length - 2);
             let value = this.props[key] !== undefined ? this.props[key] : text;
+            if (value && typeof value === "string")
+                value = utils.sanitize(value);
             if (value.amount && value.asset)
                 value = utils.format_asset(
                     value.amount,
@@ -106,6 +120,7 @@ class HelpContent extends React.Component {
                 );
             if (value.date) value = utils.format_date(value.date);
             if (value.time) value = utils.format_time(value.time);
+
             return value;
         });
     }
@@ -121,15 +136,6 @@ class HelpContent extends React.Component {
 
         let value = HelpData[locale][this.props.path];
 
-        if (!value && locale !== "en") {
-            console.warn(
-                `missing path '${
-                    this.props.path
-                }' for locale '${locale}' help files, rolling back to 'en'`
-            );
-            value = HelpData["en"][this.props.path];
-        }
-
         if (!value && this.props.alt_path) {
             console.warn(
                 `missing path '${
@@ -139,6 +145,15 @@ class HelpContent extends React.Component {
                 }'`
             );
             value = HelpData[locale][this.props.alt_path];
+        }
+
+        if (!value && locale !== "en") {
+            console.warn(
+                `missing path '${
+                    this.props.path
+                }' for locale '${locale}' help files, rolling back to 'en'`
+            );
+            value = HelpData["en"][this.props.path];
         }
 
         if (!value && this.props.alt_path && locale != "en") {
@@ -175,6 +190,15 @@ class HelpContent extends React.Component {
         if (!value) {
             console.error(
                 `help section not found ${this.props.path}#${
+                    this.props.section
+                }`
+            );
+            return null;
+        }
+
+        if (typeof value === "object") {
+            console.error(
+                `help section content invalid ${this.props.path}#${
                     this.props.section
                 }`
             );

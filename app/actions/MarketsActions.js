@@ -1,7 +1,7 @@
 import alt from "alt-instance";
 import WalletApi from "api/WalletApi";
 import WalletDb from "stores/WalletDb";
-import {ChainStore} from "bitsharesjs/es";
+import {ChainStore} from "bitsharesjs";
 import {Apis} from "bitsharesjs-ws";
 import marketUtils from "common/market_utils";
 import accountUtils from "common/account_utils";
@@ -31,10 +31,11 @@ function clearBatchTimeouts() {
 }
 
 const marketStatsQueue = []; // Queue array holding get_ticker promises
-const marketStatsQueueLength = 10; // Number of get_ticker calls per batch
+const marketStatsQueueLength = 500; // Number of get_ticker calls per batch
 const marketStatsQueueTimeout = 1.5; // Seconds before triggering a queue processing
 let marketStatsQueueActive = false;
 
+let currentGroupedOrderLimit = 0;
 class MarketsActions {
     changeBase(market) {
         clearBatchTimeouts();
@@ -67,17 +68,19 @@ class MarketsActions {
                     lastFetched: new Date()
                 };
 
-                marketStatsQueue.push({
-                    promise: Apis.instance()
-                        .db_api()
-                        .exec("get_ticker", [
-                            second.get("id"),
-                            first.get("id")
-                        ]),
-                    market: marketName,
-                    base: second,
-                    quote: first
-                });
+                if (Apis.instance().db_api()) {
+                    marketStatsQueue.push({
+                        promise: Apis.instance()
+                            .db_api()
+                            .exec("get_ticker", [
+                                second.get("id"),
+                                first.get("id")
+                            ]),
+                        market: marketName,
+                        base: second,
+                        quote: first
+                    });
+                }
 
                 if (!marketStatsQueueActive) {
                     marketStatsQueueActive = true;
@@ -92,7 +95,7 @@ class MarketsActions {
                         0,
                         marketStatsQueueLength
                     );
-                    Promise.all(currentBatch.map(q => q.promise))
+                    return Promise.all(currentBatch.map(q => q.promise))
                         .then(results => {
                             dispatch({
                                 tickers: results,
@@ -103,6 +106,7 @@ class MarketsActions {
                             marketStatsQueue.splice(0, results.length);
                             if (marketStatsQueue.length === 0) {
                                 marketStatsQueueActive = false;
+                                return;
                             } else {
                                 return processQueue();
                             }
@@ -125,7 +129,28 @@ class MarketsActions {
         return true;
     }
 
+    async getTicker(base, quote) {
+        if (base instanceof Object) {
+            base = base.get("id");
+        }
+        if (quote instanceof Object) {
+            quote = quote.get("id");
+        }
+        return await Apis.instance()
+            .db_api()
+            .exec("get_ticker", [base, quote]);
+    }
+
     subscribeMarket(base, quote, bucketSize, groupedOrderLimit) {
+        /*
+        * DataFeed will call subscribeMarket with undefined groupedOrderLimit,
+        * so we keep track of the last value used and use that instead in that
+        * case
+        */
+        if (typeof groupedOrderLimit === "undefined")
+            groupedOrderLimit = currentGroupedOrderLimit;
+        else currentGroupedOrderLimit = groupedOrderLimit;
+
         clearBatchTimeouts();
         let subID = quote.get("id") + "_" + base.get("id");
         currentMarket = base.get("id") + "_" + quote.get("id");
@@ -530,7 +555,7 @@ class MarketsActions {
                                 error
                             );
                             dispatch({unSub: false, market: subID});
-                            reject();
+                            reject(error);
                         });
                 });
             }
@@ -600,17 +625,25 @@ class MarketsActions {
         };
     }
 
-    createLimitOrder2(order) {
+    createLimitOrder2(orderOrOrders) {
         var tr = WalletApi.new_transaction();
+
+        let orders = [];
 
         // let feeAsset = ChainStore.getAsset(fee_asset_id);
         // if( feeAsset.getIn(["options", "core_exchange_rate", "base", "asset_id"]) === "1.3.0" && feeAsset.getIn(["options", "core_exchange_rate", "quote", "asset_id"]) === "1.3.0" ) {
         //     fee_asset_id = "1.3.0";
         // }
 
-        order = order.toObject();
+        if (Array.isArray(orderOrOrders)) {
+            orders = orderOrOrders.map(order => order.toObject());
+        } else {
+            orders.push(orderOrOrders.toObject());
+        }
 
-        tr.add_type_operation("limit_order_create", order);
+        orders.forEach(order => {
+            tr.add_type_operation("limit_order_create", order);
+        });
 
         return WalletDb.process_transaction(tr, null, true)
             .then(result => {

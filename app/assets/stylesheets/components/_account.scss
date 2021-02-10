@@ -237,30 +237,13 @@ a.action-button > span {
     text-transform: lowercase;
 }
 
-div.header-selector {
-    > .filter {
-        margin-right: 1rem;
-        input {
-            margin: 0;
-            height: 2rem;
-            padding: 0 10px;
-        }
+div.voting {
+    div.header-selector {
+        padding: 1rem;
     }
-    > .selector div {
-        font-size: 1rem;
-        margin-bottom: 0.5rem;
-        cursor: pointer;
-        &:nth-of-type(n + 1) {
-            padding-left: 10px;
-            padding-right: 10px;
-            border-right: 1px solid white; // TODO: FIX
-        }
-        &:hover.inactive {
-            color: inherit;
-        }
-    }
-    > .selector div:last-of-type {
-        border-right: 0px;
+
+    span.search-input {
+        width: 220px;
     }
 }
 
@@ -334,6 +317,10 @@ table.table.dashboard-table {
     > tbody > tr > td:first-of-type {
         padding-left: 1.5rem;
     }
+    > thead > tr > th:last-of-type,
+    > tbody > tr > td:last-of-type {
+        padding-right: 1.5rem;
+    }
     > thead > tr > th {
         @include RobotoMedium;
         font-size: 0.875rem;
@@ -383,6 +370,30 @@ table.table.dashboard-table {
                 text-align: right;
             }
         }
+    }
+}
+
+.grid-wrapper {
+    margin-bottom: 20px;
+}
+
+.groupColumn {
+    // !important used to override theme styles
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+
+    // "Fit to content" hack: https://stackoverflow.com/questions/11267154/fit-cell-width-to-content
+    width: 1%;
+    white-space: nowrap;
+}
+
+.ant-table-content .ant-table-footer .total-value {
+    text-align: right;
+
+    .text {
+        margin-right: 20px;
+        text-transform: uppercase;
+        @include RobotoMedium;
     }
 }
 
@@ -462,5 +473,46 @@ div.tabs-container {
     padding: 10px;
     text {
         @include RobotoRegular;
+    }
+}
+
+.account-treemap--legend {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    .legend-item {
+        display: flex;
+        margin-right: 10px;
+        margin-bottom: 10px;
+        .legend-square {
+            height: 16px;
+            width: 16px;
+            margin-right: 5px;
+        }
+    }
+}
+
+.account-input-style-guide--account-status {
+    float: right;
+    color: $success-color;
+}
+
+.account-input-style-guide--account-status--scammer {
+    color: $alert-color;
+}
+
+.account-input-style-guide--label {
+}
+
+.account-input-style-guide {
+}
+
+.recent-transactions {
+    .iconLinkAndLabel {
+        span {
+            font-weight: bold;
+            margin-left: 0.5rem;
+            text-transform: uppercase;
+        }
     }
 }

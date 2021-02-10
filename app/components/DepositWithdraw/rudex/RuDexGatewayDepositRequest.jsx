@@ -1,19 +1,21 @@
 import React from "react";
 import Translate from "react-translate-component";
-import {ChainStore} from "bitsharesjs/es";
+import {ChainStore} from "bitsharesjs";
 import ChainTypes from "components/Utility/ChainTypes";
 import BindToChainState from "components/Utility/BindToChainState";
+import DisableCopyText from "../DisableCopyText";
 import RuDexWithdrawModal from "./RuDexWithdrawModal";
-import Modal from "react-foundation-apps/src/modal";
-import Trigger from "react-foundation-apps/src/trigger";
-import ZfApi from "react-foundation-apps/src/utils/foundation-api";
 import AccountBalance from "../../Account/AccountBalance";
 import RuDexDepositAddressCache from "common/RuDexDepositAddressCache";
+import {requestDepositAddress} from "lib/common/RuDexMethods";
 import AssetName from "components/Utility/AssetName";
 import LinkToAccountById from "components/Utility/LinkToAccountById";
 import utils from "common/utils";
 import counterpart from "counterpart";
 import PropTypes from "prop-types";
+import CopyToClipboard from "react-copy-to-clipboard";
+import {Modal} from "bitshares-ui-style-guide";
+import {availableGateways} from "lib/common/gateways";
 
 class RuDexGatewayDepositRequest extends React.Component {
     static propTypes = {
@@ -31,7 +33,11 @@ class RuDexGatewayDepositRequest extends React.Component {
         deprecated_message: PropTypes.string,
         action: PropTypes.string,
         supports_output_memos: PropTypes.bool.isRequired,
+        supportsPublicKey: PropTypes.bool.isRequired,
+        memoType: PropTypes.string,
         min_amount: PropTypes.number,
+        gateFee: PropTypes.number,
+        confirmations: PropTypes.object,
         asset_precision: PropTypes.number
     };
 
@@ -40,29 +46,25 @@ class RuDexGatewayDepositRequest extends React.Component {
         this.deposit_address_cache = new RuDexDepositAddressCache();
 
         this.state = {
+            isModalVisible: false,
             receive_address: null
         };
 
         this.addDepositAddress = this.addDepositAddress.bind(this);
-        this._copy = this._copy.bind(this);
-        document.addEventListener("copy", this._copy);
+        this.showModal = this.showModal.bind(this);
+        this.hideModal = this.hideModal.bind(this);
     }
 
-    _copy(e) {
-        try {
-            if (this.state.clipboardText)
-                e.clipboardData.setData("text/plain", this.state.clipboardText);
-            else
-                e.clipboardData.setData(
-                    "text/plain",
-                    counterpart
-                        .translate("gateway.use_copy_button")
-                        .toUpperCase()
-                );
-            e.preventDefault();
-        } catch (err) {
-            console.error(err);
-        }
+    showModal() {
+        this.setState({
+            isModalVisible: true
+        });
+    }
+
+    hideModal() {
+        this.setState({
+            isModalVisible: false
+        });
     }
 
     _getDepositObject() {
@@ -79,10 +81,6 @@ class RuDexGatewayDepositRequest extends React.Component {
     //     let receive_address = this.deposit_address_cache.getCachedInputAddress(this.props.gateway, account_name, this.props.deposit_coin_type, this.props.receive_coin_type);
     // }
 
-    componentWillUnmount() {
-        document.removeEventListener("copy", this._copy);
-    }
-
     addDepositAddress(receive_address) {
         let account_name = this.props.account.get("name");
         this.deposit_address_cache.cacheInputAddress(
@@ -93,6 +91,7 @@ class RuDexGatewayDepositRequest extends React.Component {
             receive_address.address,
             receive_address.memo
         );
+        this.setState({account_name});
         this.setState({receive_address});
     }
 
@@ -108,17 +107,7 @@ class RuDexGatewayDepositRequest extends React.Component {
     }
 
     onWithdraw() {
-        ZfApi.publish(this.getWithdrawModalId(), "open");
-    }
-
-    toClipboard(clipboardText) {
-        try {
-            this.setState({clipboardText}, () => {
-                document.execCommand("copy");
-            });
-        } catch (err) {
-            console.error(err);
-        }
+        this.showModal();
     }
 
     render() {
@@ -169,10 +158,24 @@ class RuDexGatewayDepositRequest extends React.Component {
             );
         }
 
-        // if( !receive_address ) {
-        //     requestDepositAddress(this._getDepositObject());
-        //     return emptyRow;
-        // }
+        let depositConfirmation = null;
+        if (this.props.confirmations && this.props.confirmations.type) {
+            if (this.props.confirmations.type === "irreversible") {
+                depositConfirmation = (
+                    <Translate content="gateway.gateway_deposit.confirmations.last_irreversible" />
+                );
+            } else if (
+                this.props.confirmations.type === "blocks" &&
+                this.props.confirmations.value
+            ) {
+                depositConfirmation = (
+                    <Translate
+                        content="gateway.gateway_deposit.confirmations.n_blocks"
+                        blocks={this.props.confirmations.value}
+                    />
+                );
+            }
+        }
 
         let withdraw_modal_id = this.getWithdrawModalId();
         let deposit_address_fragment = null;
@@ -185,15 +188,38 @@ class RuDexGatewayDepositRequest extends React.Component {
         // {
         let clipboardText = "";
         let memoText;
-        if (this.props.deposit_account) {
+        let withdraw_memo_prefix;
+        let currentGateway = "RUDEX";
+        if (
+            !!availableGateways[currentGateway].simpleAssetGateway &&
+            this.props.deposit_account
+        ) {
             deposit_address_fragment = (
                 <span>{this.props.deposit_account}</span>
             );
             clipboardText = this.props.deposit_account;
-            memoText = "dex:" + this.props.account.get("name");
+            if (!!this.props.memoType && this.props.memoType === "btsid") {
+                memoText =
+                    availableGateways[currentGateway].fixedMemo[
+                        "prepend_btsid"
+                    ] +
+                    this.props.account.get("id").replace("1.2.", "") +
+                    availableGateways[currentGateway].fixedMemo["append"];
+            } else {
+                memoText =
+                    availableGateways[currentGateway].fixedMemo[
+                        "prepend_default"
+                    ] +
+                    this.props.account.get("name") +
+                    availableGateways[currentGateway].fixedMemo["append"];
+            }
             deposit_memo = <span>{memoText}</span>;
-            var withdraw_memo_prefix = this.props.deposit_coin_type + ":";
+            withdraw_memo_prefix = this.props.deposit_coin_type + ":";
         } else {
+            if (!receive_address && !this.props.supportsMemos) {
+                requestDepositAddress(this._getDepositObject());
+                return emptyRow;
+            }
             if (receive_address.memo) {
                 // This is a client that uses a deposit memo (like ethereum), we need to display both the address and the memo they need to send
                 memoText = receive_address.memo;
@@ -209,7 +235,7 @@ class RuDexGatewayDepositRequest extends React.Component {
                     <span>{receive_address.address}</span>
                 );
             }
-            var withdraw_memo_prefix = "";
+            withdraw_memo_prefix = "";
         }
 
         if (this.props.action === "deposit") {
@@ -298,7 +324,8 @@ class RuDexGatewayDepositRequest extends React.Component {
                                     </tr>
                                     <tr>
                                         <td>
-                                            <Translate content="gateway.balance" />:
+                                            <Translate content="gateway.balance" />
+                                            :
                                         </td>
                                         <td
                                             style={{
@@ -331,7 +358,8 @@ class RuDexGatewayDepositRequest extends React.Component {
                             <Translate
                                 content="gateway.deposit_to"
                                 asset={this.props.deposit_asset}
-                            />:
+                            />
+                            :
                         </label>
                         <label className="left-label">
                             <b>
@@ -349,19 +377,38 @@ class RuDexGatewayDepositRequest extends React.Component {
                                 />
                             </b>
                         </label>
+                        {depositConfirmation ? (
+                            <span>
+                                (<i>{depositConfirmation}</i>)
+                            </span>
+                        ) : null}
                         <div style={{padding: "10px 0", fontSize: "1.1rem"}}>
                             <table className="table">
                                 <tbody>
                                     <tr>
                                         <td>
                                             ADDRESS:{" "}
-                                            <b>{deposit_address_fragment}</b>
+                                            <b>
+                                                <DisableCopyText
+                                                    replaceCopyText={counterpart.translate(
+                                                        "gateway.use_copy_button"
+                                                    )}
+                                                >
+                                                    {deposit_address_fragment}
+                                                </DisableCopyText>
+                                            </b>
                                         </td>
                                     </tr>
                                     {deposit_memo ? (
                                         <tr>
                                             <td>
-                                                MEMO: <b>{deposit_memo}</b>
+                                                <DisableCopyText
+                                                    replaceCopyText={counterpart.translate(
+                                                        "gateway.use_copy_button"
+                                                    )}
+                                                >
+                                                    MEMO: <b>{deposit_memo}</b>
+                                                </DisableCopyText>
                                             </td>
                                         </tr>
                                     ) : null}
@@ -372,26 +419,16 @@ class RuDexGatewayDepositRequest extends React.Component {
                                 style={{paddingTop: 10}}
                             >
                                 {deposit_address_fragment ? (
-                                    <div
-                                        className="button"
-                                        onClick={this.toClipboard.bind(
-                                            this,
-                                            clipboardText
-                                        )}
-                                    >
-                                        Copy address
-                                    </div>
+                                    <CopyToClipboard text={clipboardText}>
+                                        <div className="button">
+                                            Copy address
+                                        </div>
+                                    </CopyToClipboard>
                                 ) : null}
                                 {memoText ? (
-                                    <div
-                                        className="button"
-                                        onClick={this.toClipboard.bind(
-                                            this,
-                                            memoText
-                                        )}
-                                    >
-                                        Copy memo
-                                    </div>
+                                    <CopyToClipboard text={memoText}>
+                                        <div className="button">Copy memo</div>
+                                    </CopyToClipboard>
                                 ) : null}
                             </div>
                         </div>
@@ -465,7 +502,8 @@ class RuDexGatewayDepositRequest extends React.Component {
                                     </tr>
                                     <tr>
                                         <td>
-                                            <Translate content="gateway.balance" />:
+                                            <Translate content="gateway.balance" />
+                                            :
                                         </td>
                                         <td
                                             style={{
@@ -500,7 +538,8 @@ class RuDexGatewayDepositRequest extends React.Component {
                             <Translate
                                 content="gateway.withdraw_to"
                                 asset={this.props.deposit_asset}
-                            />:
+                            />
+                            :
                         </label>
                         <div className="button-group" style={{paddingTop: 20}}>
                             <button
@@ -512,38 +551,42 @@ class RuDexGatewayDepositRequest extends React.Component {
                             </button>
                         </div>
                     </div>
-                    <Modal id={withdraw_modal_id} overlay={true}>
-                        <Trigger close={withdraw_modal_id}>
-                            <a href="#" className="close-button">
-                                &times;
-                            </a>
-                        </Trigger>
-                        <br />
-                        <div className="grid-block vertical">
-                            <RuDexWithdrawModal
-                                account={this.props.account.get("name")}
-                                issuer={this.props.issuer_account.get("name")}
-                                asset={this.props.receive_asset.get("symbol")}
-                                output_coin_name={this.props.deposit_asset_name}
-                                output_coin_symbol={this.props.deposit_asset}
-                                output_coin_type={this.props.deposit_coin_type}
-                                output_wallet_type={
-                                    this.props.deposit_wallet_type
-                                }
-                                output_supports_memos={
-                                    this.props.supports_output_memos
-                                }
-                                memo_prefix={withdraw_memo_prefix}
-                                modal_id={withdraw_modal_id}
-                                min_amount={this.props.min_amount}
-                                asset_precision={this.props.asset_precision}
-                                balance={
-                                    this.props.account.get("balances").toJS()[
-                                        this.props.receive_asset.get("id")
-                                    ]
-                                }
-                            />
-                        </div>
+                    <Modal
+                        onCancel={this.hideModal}
+                        title={counterpart.translate("gateway.withdraw_coin", {
+                            coin: this.props.deposit_asset_name,
+                            symbol: this.props.deposit_asset
+                        })}
+                        footer={null}
+                        visible={this.state.isModalVisible}
+                    >
+                        <RuDexWithdrawModal
+                            hideModal={this.hideModal}
+                            showModal={this.showModal}
+                            account={this.props.account.get("name")}
+                            issuer={this.props.issuer_account.get("name")}
+                            asset={this.props.receive_asset.get("symbol")}
+                            output_coin_name={this.props.deposit_asset_name}
+                            output_coin_symbol={this.props.deposit_asset}
+                            output_coin_type={this.props.deposit_coin_type}
+                            output_wallet_type={this.props.deposit_wallet_type}
+                            output_supports_memos={
+                                this.props.supports_output_memos
+                            }
+                            output_supportsPublicKey={
+                                this.props.supportsPublicKey
+                            }
+                            memo_prefix={withdraw_memo_prefix}
+                            modal_id={withdraw_modal_id}
+                            min_amount={this.props.min_amount}
+                            gateFee={this.props.gateFee}
+                            asset_precision={this.props.asset_precision}
+                            balance={
+                                this.props.account.get("balances").toJS()[
+                                    this.props.receive_asset.get("id")
+                                ]
+                            }
+                        />
                     </Modal>
                 </div>
             );

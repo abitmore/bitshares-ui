@@ -1,15 +1,13 @@
 import React from "react";
-import ZfApi from "react-foundation-apps/src/utils/foundation-api";
-import BaseModal from "../Modal/BaseModal";
 import Translate from "react-translate-component";
 import utils from "common/utils";
 import {requestDepositAddress} from "common/gatewayMethods";
+import {ChainStore} from "bitsharesjs";
 import BlockTradesDepositAddressCache from "common/BlockTradesDepositAddressCache";
 import CopyButton from "../Utility/CopyButton";
 import Icon from "../Icon/Icon";
 import LoadingIndicator from "../LoadingIndicator";
-import {DecimalChecker} from "../Exchange/ExchangeInput";
-import QRCode from "qrcode.react";
+import {DecimalChecker} from "../Utility/DecimalChecker";
 import DepositWithdrawAssetSelector from "../DepositWithdraw/DepositWithdrawAssetSelector.js";
 import {
     gatewaySelector,
@@ -19,31 +17,98 @@ import {
 } from "lib/common/assetGatewayMixin";
 import {availableGateways} from "common/gateways";
 import {getGatewayStatusByAsset} from "common/gatewayUtils";
+import CryptoLinkFormatter from "../Utility/CryptoLinkFormatter";
+import counterpart from "counterpart";
+import {Modal, Button} from "bitshares-ui-style-guide";
 
 class DepositModalContent extends DecimalChecker {
     constructor() {
         super();
 
-        this.state = {
-            depositAddress: "",
-            selectedAsset: "",
-            selectedGateway: null,
-            fetchingAddress: false,
-            backingAsset: null,
-            gatewayStatus: availableGateways
-        };
+        this.state = this._intitalState();
 
         this.deposit_address_cache = new BlockTradesDepositAddressCache();
         this.addDepositAddress = this.addDepositAddress.bind(this);
     }
 
     onClose() {
-        ZfApi.publish(this.props.modalId, "close");
+        this.props.hideModal();
     }
 
     componentWillMount() {
         let {asset} = this.props;
+        this._setDepositAsset(asset);
+    }
 
+    shouldComponentUpdate(np, ns) {
+        if (np.asset !== this.props.asset) {
+            this.setState(this._intitalState());
+            this._setDepositAsset(np.asset);
+        }
+        return !utils.are_equal_shallow(ns, this.state);
+    }
+
+    onGatewayChanged(selectedGateway) {
+        this._getDepositAddress(this.state.selectedAsset, selectedGateway);
+    }
+
+    onAssetSelected(asset) {
+        if (asset.gateway == "")
+            return this.setState({
+                selectedAsset: asset.id,
+                selectedGateway: null
+            });
+
+        let {selectedAsset, selectedGateway} = _onAssetSelected.call(
+            this,
+            asset.id,
+            "depositAllowed",
+            (availableGateways, balancesByGateway) => {
+                if (availableGateways && availableGateways.length == 1)
+                    return availableGateways[0]; //autoselect gateway if exactly 1 item
+                return null;
+            }
+        );
+
+        if (selectedGateway) {
+            this._getDepositAddress(selectedAsset, selectedGateway);
+        }
+    }
+
+    _intitalState() {
+        return {
+            depositAddress: "",
+            selectedAsset: "",
+            selectedGateway: null,
+            fetchingAddress: false,
+            backingAsset: null,
+            gatewayStatus: availableGateways,
+            depositConfirmation: null
+        };
+    }
+
+    _getDepositConfirmation(backingAsset) {
+        let depositConfirmation = null;
+        if (backingAsset.confirmations && backingAsset.confirmations.type) {
+            if (backingAsset.confirmations.type === "irreversible") {
+                depositConfirmation = {
+                    type: "irreversible"
+                };
+            } else if (
+                backingAsset.confirmations.type === "blocks" &&
+                backingAsset.confirmations.value
+            ) {
+                depositConfirmation = {
+                    type: "blocks",
+                    value: backingAsset.confirmations.value
+                };
+            }
+        }
+
+        this.setState({depositConfirmation});
+    }
+
+    _setDepositAsset(asset) {
         let coinToGatewayMapping = _getCoinToGatewayMapping.call(this);
         this.setState({coinToGatewayMapping});
 
@@ -63,53 +128,20 @@ class DepositModalContent extends DecimalChecker {
         }
     }
 
-    shouldComponentUpdate(np, ns) {
-        return !utils.are_equal_shallow(ns, this.state);
-    }
-
-    onGatewayChanged(e) {
-        if (!e.target.value) return;
-        this._getDepositAddress(this.state.selectedAsset, e.target.value);
-    }
-
-    onAssetSelected(asset, assetDetails) {
-        if (assetDetails.gateway == "")
-            return this.setState({selectedAsset: asset, selectedGateway: null});
-
-        let {selectedAsset, selectedGateway} = _onAssetSelected.call(
-            this,
-            asset,
-            "depositAllowed",
-            (availableGateways, balancesByGateway) => {
-                if (availableGateways && availableGateways.length == 1)
-                    return availableGateways[0]; //autoselect gateway if exactly 1 item
-                return null;
-            }
-        );
-
-        if (selectedGateway) {
-            this._getDepositAddress(selectedAsset, selectedGateway);
-        }
-    }
-
-    _getDepositObject(selectedAsset, selectedGateway, url) {
+    _getDepositObject(assetName, fullAssetName, selectedGateway, url) {
         let {props, state} = this;
         let {account} = props;
         let {gatewayStatus} = state;
 
         return {
             inputCoinType: gatewayStatus[selectedGateway].useFullAssetName
-                ? selectedGateway.toLowerCase() +
-                  "." +
-                  selectedAsset.toLowerCase()
-                : selectedAsset.toLowerCase(),
-            outputCoinType:
-                selectedGateway.toLowerCase() +
-                "." +
-                selectedAsset.toLowerCase(),
+                ? fullAssetName.toLowerCase()
+                : assetName.toLowerCase(),
+            outputCoinType: fullAssetName.toLowerCase(),
             outputAddress: account,
             url: url,
-            stateCallback: this.addDepositAddress
+            stateCallback: this.addDepositAddress,
+            selectedGateway: selectedGateway
         };
     }
 
@@ -127,17 +159,15 @@ class DepositModalContent extends DecimalChecker {
         let backingAsset = this.props.backedCoins
             .get(selectedGateway.toUpperCase(), [])
             .find(c => {
-                if (c.backingCoinType) {
-                    return (
-                        c.backingCoinType.toUpperCase() ===
-                        selectedAsset.toUpperCase()
-                    );
-                } else if (c.backingCoin) {
-                    return (
-                        c.backingCoin.toUpperCase() ===
-                        selectedAsset.toUpperCase()
-                    );
+                let backingCoin = c.backingCoinType || c.backingCoin;
+
+                if (backingCoin.toUpperCase().indexOf("EOS.") !== -1) {
+                    backingCoin = backingCoin.split(".")[1];
                 }
+
+                return (
+                    backingCoin.toUpperCase() === selectedAsset.toUpperCase()
+                );
             });
 
         if (!backingAsset) {
@@ -151,6 +181,8 @@ class DepositModalContent extends DecimalChecker {
             return;
         }
 
+        this._getDepositConfirmation(backingAsset);
+
         let depositAddress;
         if (selectedGateway && selectedAsset) {
             depositAddress = this.deposit_address_cache.getCachedInputAddress(
@@ -163,23 +195,45 @@ class DepositModalContent extends DecimalChecker {
             );
         }
 
-        if (!!gatewayStatus[selectedGateway].simpleAssetGateway) {
+        if (
+            !!gatewayStatus[selectedGateway].simpleAssetGateway &&
+            !!backingAsset.gatewayWallet
+        ) {
+            let memoText;
+            if (!!backingAsset.memoType && backingAsset.memoType === "btsid") {
+                let accountMap = ChainStore.getAccount(account, false);
+                memoText =
+                    gatewayStatus[selectedGateway].fixedMemo["prepend_btsid"] +
+                    accountMap.get("id").replace("1.2.", "") +
+                    gatewayStatus[selectedGateway].fixedMemo["append"];
+            } else {
+                memoText =
+                    gatewayStatus[selectedGateway].fixedMemo[
+                        "prepend_default"
+                    ] +
+                    account +
+                    gatewayStatus[selectedGateway].fixedMemo["append"];
+            }
+
+            depositAddress = {
+                address: backingAsset.gatewayWallet,
+                memo: memoText
+            };
+
             this.setState({
-                depositAddress: {
-                    address: backingAsset.gatewayWallet,
-                    memo: !gatewayStatus[selectedGateway].fixedMemo
-                        ? account
-                        : gatewayStatus[selectedGateway].fixedMemo["prepend"] +
-                          account +
-                          gatewayStatus[selectedGateway].fixedMemo["append"]
-                },
+                depositAddress,
                 fetchingAddress: false
             });
         } else {
             if (!depositAddress) {
+                const assetName =
+                    backingAsset.backingCoinType || backingAsset.backingCoin;
+                const fullAssetName = backingAsset.symbol;
+
                 requestDepositAddress(
                     this._getDepositObject(
-                        selectedAsset,
+                        assetName,
+                        fullAssetName,
                         selectedGateway,
                         gatewayStatus[selectedGateway].baseAPI.BASE
                     )
@@ -224,7 +278,8 @@ class DepositModalContent extends DecimalChecker {
             depositAddress,
             fetchingAddress,
             gatewayStatus,
-            backingAsset
+            backingAsset,
+            depositConfirmation
         } = this.state;
         let {account} = this.props;
         let usingGateway = true;
@@ -241,23 +296,27 @@ class DepositModalContent extends DecimalChecker {
             depositAddress !== "unknown" &&
             !depositAddress.error;
 
-        let minDeposit =
-            !backingAsset || !backingAsset.gateFee
-                ? 0
-                : backingAsset.gateFee
-                    ? backingAsset.gateFee * 2
-                    : utils.format_number(
-                          backingAsset.minAmount /
-                              utils.get_asset_precision(backingAsset.precision),
-                          backingAsset.precision,
-                          false
-                      );
+        let minDeposit = 0;
+        if (!!backingAsset) {
+            if (!!backingAsset.minAmount && !!backingAsset.precision) {
+                minDeposit = utils.format_number(
+                    backingAsset.minAmount /
+                        utils.get_asset_precision(backingAsset.precision),
+                    backingAsset.precision,
+                    false
+                );
+            } else if (!!backingAsset.gateFee) {
+                minDeposit = backingAsset.gateFee * 2;
+            }
+        }
         //let maxDeposit = backingAsset.maxAmount ? backingAsset.maxAmount : null;
 
         const QR = isAddressValid ? (
-            <div className="QR">
-                <QRCode size={140} value={depositAddress.address} />
-            </div>
+            <CryptoLinkFormatter
+                size={140}
+                address={usingGateway ? depositAddress.address : account}
+                asset={selectedAsset}
+            />
         ) : (
             <div>
                 <Icon
@@ -273,30 +332,12 @@ class DepositModalContent extends DecimalChecker {
 
         return (
             <div className="grid-block vertical no-overflow">
-                <div className="modal__header">
-                    {usingGateway && account ? (
-                        <Translate
-                            component="p"
-                            content="modal.deposit.header"
-                            account_name={
-                                <span className="modal__highlight">
-                                    {account}
-                                </span>
-                            }
-                        />
-                    ) : (
-                        <Translate
-                            component="p"
-                            content="modal.deposit.header_short"
-                        />
-                    )}
-                </div>
-                <div className="modal__body">
+                <div className="modal__body" style={{paddingTop: "0"}}>
                     <div className="container-row">
                         <div className="no-margin no-padding">
                             <div className="inline-label input-wrapper">
                                 <DepositWithdrawAssetSelector
-                                    defaultValue={selectedAsset}
+                                    defaultValue={this.state.selectedAsset}
                                     onSelect={this.onAssetSelected.bind(this)}
                                     selectOnBlur
                                 />
@@ -332,7 +373,7 @@ class DepositModalContent extends DecimalChecker {
                     ) : (
                         <div
                             className="container-row"
-                            style={{textAlign: "center"}}
+                            style={{textAlign: "center", paddingTop: 15}}
                         >
                             <LoadingIndicator type="three-bounce" />
                         </div>
@@ -356,7 +397,7 @@ class DepositModalContent extends DecimalChecker {
                                         className={"copyIcon"}
                                     />
                                 </div>
-                                <div>
+                                <div style={{wordBreak: "break-word"}}>
                                     <Translate
                                         component="div"
                                         style={{
@@ -374,7 +415,10 @@ class DepositModalContent extends DecimalChecker {
                                     />
                                     <div
                                         className="modal__highlight"
-                                        style={{fontSize: "0.9rem"}}
+                                        style={{
+                                            fontSize: "0.9rem",
+                                            wordBreak: "break-all"
+                                        }}
                                     >
                                         {depositAddress.address}
                                     </div>
@@ -399,12 +443,37 @@ class DepositModalContent extends DecimalChecker {
                                             unsafe
                                             content="gateway.purchase_notice_memo"
                                         />
-                                        <div className="modal__highlight">
+                                        <div
+                                            className="modal__highlight"
+                                            style={{wordBreak: "break-all"}}
+                                        >
                                             {depositAddress.memo}
                                         </div>
                                     </div>
                                 </div>
                             ) : null}
+                            {depositConfirmation ? (
+                                <div
+                                    style={{
+                                        fontSize: "0.8rem",
+                                        fontWeight: "bold",
+                                        fontStyle: "italic",
+                                        paddingBottom: "0.3rem"
+                                    }}
+                                >
+                                    {depositConfirmation.type ===
+                                    "irreversible" ? (
+                                        <Translate content="gateway.gateway_deposit.confirmations.last_irreversible" />
+                                    ) : depositConfirmation.type ===
+                                    "blocks" ? (
+                                        <Translate
+                                            content="gateway.gateway_deposit.confirmations.n_blocks"
+                                            blocks={depositConfirmation.value}
+                                        />
+                                    ) : null}
+                                </div>
+                            ) : null}
+
                             <Translate
                                 component="span"
                                 style={{fontSize: "0.8rem"}}
@@ -429,17 +498,6 @@ class DepositModalContent extends DecimalChecker {
                         </div>
                     ) : null}
                 </div>
-
-                <div className="Modal__footer">
-                    <div className="container-row">
-                        <button
-                            className="button primary hollow"
-                            onClick={this.onClose.bind(this)}
-                        >
-                            <Translate content="modal.deposit.close" />
-                        </button>
-                    </div>
-                </div>
             </div>
         );
     }
@@ -454,25 +512,43 @@ export default class DepositModal extends React.Component {
 
     show() {
         this.setState({open: true}, () => {
-            ZfApi.publish(this.props.modalId, "open");
+            this.props.hideModal();
         });
     }
 
     onClose() {
+        this.props.hideModal();
         this.setState({open: false});
     }
 
     render() {
-        return !this.state.open ? null : (
-            <BaseModal
+        return (
+            <Modal
+                title={
+                    this.props.account
+                        ? counterpart.translate("modal.deposit.header", {
+                              account_name: this.props.account
+                          })
+                        : counterpart.translate("modal.deposit.header_short")
+                }
                 id={this.props.modalId}
                 className={this.props.modalId}
-                onClose={this.onClose.bind(this)}
+                onCancel={this.onClose.bind(this)}
                 overlay={true}
+                footer={[
+                    <Button key="cancel" onClick={this.props.hideModal}>
+                        {counterpart.translate("modal.close")}
+                    </Button>
+                ]}
+                visible={this.props.visible}
                 noCloseBtn
             >
-                <DepositModalContent {...this.props} open={this.state.open} />
-            </BaseModal>
+                <DepositModalContent
+                    hideModal={this.props.hideModal}
+                    {...this.props}
+                    open={this.props.visible}
+                />
+            </Modal>
         );
     }
 }

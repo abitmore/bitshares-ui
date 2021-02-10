@@ -1,7 +1,7 @@
 import alt from "alt-instance";
 import iDB from "idb-instance";
 import {compress, decompress} from "lzma";
-import {PrivateKey, PublicKey, Aes, key} from "bitsharesjs/es";
+import {PrivateKey, PublicKey, Aes, key} from "bitsharesjs";
 import WalletActions from "actions/WalletActions";
 
 class BackupActions {
@@ -11,7 +11,8 @@ class BackupActions {
             reader.onload = evt => {
                 let contents = new Buffer(evt.target.result, "binary");
                 let name = file.name;
-                let last_modified = file.lastModifiedDate.toString();
+
+                let last_modified = new Date(file.lastModified).toString();
 
                 dispatch({name, contents, last_modified});
             };

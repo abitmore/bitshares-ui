@@ -1,6 +1,8 @@
 // Hacks that should get cleaned up and put in appropriate files within the stylesheet layout
 // http://sass-guidelin.es/#shame-file
 
+@import "./style-guide-fixes";
+
 #content.win32 {
     font-size: 90%;
     h1 {
@@ -55,6 +57,12 @@ hr {
 
 .no-padding {
     padding: 0 !important;
+}
+
+@include breakpoint(small only) {
+    .small-no-padding {
+        padding: 0 !important;
+    }
 }
 
 .no-margin {
@@ -403,8 +411,8 @@ select.bts-select.full-width {
     }
 }
 
-input,
-textarea {
+input#{$ant-fix},
+textarea#{$ant-fix} {
     border-radius: 5px !important;
 }
 

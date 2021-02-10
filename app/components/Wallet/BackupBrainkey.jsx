@@ -3,7 +3,9 @@ import {FormattedDate} from "react-intl";
 import Translate from "react-translate-component";
 import WalletActions from "actions/WalletActions";
 import WalletDb from "stores/WalletDb";
-import {hash} from "bitsharesjs/es";
+import {hash} from "bitsharesjs";
+import {Card, Input, Button, Notification} from "bitshares-ui-style-guide";
+import counterpart from "counterpart";
 
 export default class BackupBrainkey extends Component {
     constructor() {
@@ -46,11 +48,7 @@ export default class BackupBrainkey extends Component {
                     <h3>
                         <Translate content="wallet.brainkey" />
                     </h3>
-                    <div className="card">
-                        <div className="card-content">
-                            <h5>{this.state.brainkey}</h5>
-                        </div>
-                    </div>
+                    <Card>{this.state.brainkey}</Card>
                     <br />
                     <pre className="no-overflow">
                         sha1 hash of the brainkey: {sha1}
@@ -71,11 +69,7 @@ export default class BackupBrainkey extends Component {
                     <h3>
                         <Translate content="wallet.brainkey" />
                     </h3>
-                    <div className="card">
-                        <div className="card-content">
-                            <h5>{this.state.brainkey}</h5>
-                        </div>
-                    </div>
+                    <Card>{this.state.brainkey}</Card>
                     <div style={{padding: "10px 0"}}>
                         <pre className="no-overflow">
                             sha1 hash of your brainkey: {sha1}
@@ -90,18 +84,15 @@ export default class BackupBrainkey extends Component {
                         <Translate content="wallet.brainkey_w3" />
                     </div>
 
-                    <button
-                        className="button success"
+                    <Button
+                        type={"primary"}
                         onClick={this.onComplete.bind(this)}
                     >
                         <Translate content="wallet.verify" />
-                    </button>
-                    <button
-                        className="button cancel"
-                        onClick={this.reset.bind(this)}
-                    >
+                    </Button>
+                    <Button type={"default"} onClick={this.reset.bind(this)}>
                         <Translate content="wallet.cancel" />
-                    </button>
+                    </Button>
                 </span>
             );
         }
@@ -118,27 +109,21 @@ export default class BackupBrainkey extends Component {
                         className="name-form"
                         noValidate
                     >
-                        <input
+                        <Input
                             type="password"
                             id="password"
                             onChange={this.onPassword.bind(this)}
                         />
-                        <p>
-                            {this.state.invalid_password ? (
-                                <span className="error">Invalid password</span>
-                            ) : (
-                                <span>
-                                    <Translate content="wallet.pwd4brainkey" />
-                                </span>
-                            )}
-                        </p>
                         <div>
                             {brainkey_backup_time}
                             <br />
                         </div>
-                        <button className="button success">
+                        <Button
+                            type="primary"
+                            onClick={this.onSubmit.bind(this)}
+                        >
                             <Translate content="wallet.show_brainkey" />
-                        </button>
+                        </Button>
                     </form>
                 </span>
             );
@@ -175,10 +160,14 @@ export default class BackupBrainkey extends Component {
             var brainkey = WalletDb.getBrainKey();
             if (was_locked) WalletDb.onLock();
             this.setState({brainkey});
-        } else this.setState({invalid_password: true});
+        } else {
+            Notification.error({
+                message: counterpart.translate("notifications.invalid_password")
+            });
+        }
     }
 
     onPassword(event) {
-        this.setState({password: event.target.value, invalid_password: false});
+        this.setState({password: event.target.value});
     }
 }

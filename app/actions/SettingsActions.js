@@ -72,6 +72,29 @@ class SettingsActions {
     setExchangeTutorialShown(value) {
         return value;
     }
+
+    modifyPreferedBases(payload) {
+        return payload;
+    }
+
+    updateUnits() {
+        return true;
+    }
+
+    setPriceAlert(value) {
+        return value;
+    }
+    hideNewsHeadline(value) {
+        return value;
+    }
+
+    addChartLayout(value) {
+        return value;
+    }
+
+    deleteChartLayout(value) {
+        return value;
+    }
 }
 
 export default alt.createActions(SettingsActions);

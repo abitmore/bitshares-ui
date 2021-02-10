@@ -6,6 +6,7 @@ import AssetName from "../Utility/AssetName";
 import counterpart from "counterpart";
 import getLocale from "browser-locale";
 import TransitionWrapper from "../Utility/TransitionWrapper";
+import {Tooltip} from "bitshares-ui-style-guide";
 
 class TableHeader extends React.Component {
     render() {
@@ -19,9 +20,8 @@ class TableHeader extends React.Component {
                         <br />
                         {baseSymbol ? (
                             <span className="header-sub-title">
-                                (<AssetName name={baseSymbol} />/<AssetName
-                                    name={quoteSymbol}
-                                />)
+                                (<AssetName name={baseSymbol} />/
+                                <AssetName name={quoteSymbol} />)
                             </span>
                         ) : null}
                     </th>
@@ -66,12 +66,15 @@ class SettleOrderRow extends React.Component {
         let amountSymbol = showSymbols ? " " + quote.get("symbol") : null;
 
         return (
-            <tr style={{paddingRight: 5}}>
-                <td style={{textAlign: "right", width: "25%"}}>
+            <tr>
+                <td className="text-center" style={{width: "6%"}}>
+                    {" "}
+                </td>
+                <td>
                     {utils.format_number(price, quote.get("precision"))}{" "}
                     {amountSymbol}
                 </td>
-                <td style={{textAlign: "right", width: "25%"}}>
+                <td>
                     {utils.format_number(
                         order[
                             !order.isBid() ? "amountForSale" : "amountToReceive"
@@ -79,7 +82,7 @@ class SettleOrderRow extends React.Component {
                         quote.get("precision")
                     )}
                 </td>
-                <td style={{textAlign: "right", width: "25%"}}>
+                <td>
                     {utils.format_number(
                         order[
                             !order.isBid() ? "amountToReceive" : "amountForSale"
@@ -87,20 +90,23 @@ class SettleOrderRow extends React.Component {
                         base.get("precision")
                     )}
                 </td>
-                <td
-                    style={{textAlign: "right", width: "25%"}}
-                    className="tooltip"
-                    data-tip={new Date(order.settlement_date)}
-                >
-                    {counterpart.localize(new Date(order.settlement_date), {
-                        type: "date",
-                        format:
-                            getLocale()
-                                .toLowerCase()
-                                .indexOf("en-us") !== -1
-                                ? "market_history_us"
-                                : "market_history"
-                    })}
+                <td>
+                    <Tooltip title={new Date(order.settlement_date).toString()}>
+                        <div style={{textAlign: "right", whiteSpace: "nowrap"}}>
+                            {counterpart.localize(
+                                new Date(order.settlement_date),
+                                {
+                                    type: "date",
+                                    format:
+                                        getLocale()
+                                            .toLowerCase()
+                                            .indexOf("en-us") !== -1
+                                            ? "market_history_us"
+                                            : "market_history"
+                                }
+                            )}
+                        </div>
+                    </Tooltip>
                 </td>
             </tr>
         );
@@ -125,31 +131,48 @@ class OpenSettleOrders extends React.Component {
 
         let activeOrders = null;
 
-        if (orders.size > 0 && base && quote) {
-            let index = 0;
+        const emptyRow = (
+            <tbody>
+                <tr>
+                    <td
+                        style={{
+                            textAlign: "center",
+                            lineHeight: 4,
+                            fontStyle: "italic"
+                        }}
+                        colSpan="5"
+                    >
+                        <Translate content="account.no_orders" />
+                    </td>
+                </tr>
+            </tbody>
+        );
 
+        if (orders.size > 0 && base && quote) {
             activeOrders = orders
                 .sort((a, b) => {
                     return a.isBefore(b) ? -1 : 1;
                 })
                 .map(order => {
-                    return Date.now() < order.settlement_date ? (
+                    return (
                         <SettleOrderRow
-                            key={index++}
+                            key={order.id}
                             order={order}
                             base={base}
                             quote={quote}
                         />
-                    ) : null;
+                    );
                 })
                 .toArray();
-        } else {
-            return null;
         }
 
         return (
-            <TransitionWrapper component="tbody" transitionName="newrow">
-                {activeOrders}
+            <TransitionWrapper
+                ref="contentTransition"
+                component="tbody"
+                transitionName="newrow"
+            >
+                {activeOrders ? activeOrders : emptyRow}
             </TransitionWrapper>
         );
     }

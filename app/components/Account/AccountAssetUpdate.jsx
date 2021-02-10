@@ -4,8 +4,7 @@ import classnames from "classnames";
 import AssetActions from "actions/AssetActions";
 import HelpContent from "../Utility/HelpContent";
 import utils from "common/utils";
-import {ChainStore} from "bitsharesjs/es";
-import FormattedAsset from "../Utility/FormattedAsset";
+import {ChainStore} from "bitsharesjs";
 import FormattedFee from "../Utility/FormattedFee";
 import counterpart from "counterpart";
 import ChainTypes from "../Utility/ChainTypes";
@@ -13,7 +12,6 @@ import BindToChainState from "../Utility/BindToChainState";
 import AssetWrapper from "../Utility/AssetWrapper";
 import AmountSelector from "../Utility/AmountSelector";
 import FormattedPrice from "../Utility/FormattedPrice";
-import AccountSelector from "../Account/AccountSelector";
 import AssetSelector from "../Utility/AssetSelector";
 import big from "bignumber.js";
 import cnames from "classnames";
@@ -23,14 +21,27 @@ import {BitAssetOptions} from "./AccountAssetCreate";
 import assetConstants from "chain/asset_constants";
 import AssetWhitelist from "./AssetWhitelist";
 import AssetFeedProducers from "./AssetFeedProducers";
-import BaseModal from "components/Modal/BaseModal";
-import ZfApi from "react-foundation-apps/src/utils/foundation-api";
-import FundFeePool from "./FundFeePool";
 import {withRouter} from "react-router-dom";
+import {
+    Modal,
+    Button,
+    Notification,
+    Switch,
+    Tooltip
+} from "bitshares-ui-style-guide";
+import Immutable from "immutable";
 
 let GRAPHENE_MAX_SHARE_SUPPLY = new big(
     assetConstants.GRAPHENE_MAX_SHARE_SUPPLY
 );
+
+const disabledBackingAssetChangeCallback = () => {
+    Notification.error({
+        message: counterpart.translate(
+            "account.user_issued_assets.invalid_backing_asset_change"
+        )
+    });
+};
 
 class AccountAssetUpdate extends React.Component {
     static propTypes = {
@@ -45,14 +56,21 @@ class AccountAssetUpdate extends React.Component {
         super(props);
 
         this.state = this.resetState(props);
+
+        this.showAssetUpdateConfirmationModal = this.showAssetUpdateConfirmationModal.bind(
+            this
+        );
+        this.hideAssetUpdateConfirmationModal = this.hideAssetUpdateConfirmationModal.bind(
+            this
+        );
     }
 
     _openConfirm() {
-        this.refs.confirm_modal.show();
+        this.showAssetUpdateConfirmationModal();
     }
 
     _cancelConfirm() {
-        this.refs.confirm_modal.onClose();
+        this.hideAssetUpdateConfirmationModal();
     }
 
     resetState(props) {
@@ -98,6 +116,13 @@ class AccountAssetUpdate extends React.Component {
         );
         asset.options.market_fee_percent /= 100;
 
+        if (
+            asset.options.extensions !== null &&
+            asset.options.extensions.reward_percent !== null
+        ) {
+            asset.options.extensions.reward_percent /= 100;
+        }
+
         let coreRateQuoteAssetName = ChainStore.getAsset(
             core_exchange_rate.quote.asset_id
         ).get("symbol");
@@ -105,10 +130,27 @@ class AccountAssetUpdate extends React.Component {
             core_exchange_rate.base.asset_id
         ).get("symbol");
 
+        // maybe undefined (extensions may be empty
+        let whitelist_market_fee_sharing_val = props.asset.getIn([
+            "options",
+            "extensions",
+            "whitelist_market_fee_sharing"
+        ]);
+        let reward_percent = props.asset.getIn([
+            "options",
+            "extensions",
+            "reward_percent"
+        ]);
+
         return {
+            isAssetUpdateConfirmationModalVisible: false,
             update: {
                 max_supply: max_supply,
                 max_market_fee: max_market_fee,
+                reward_percent:
+                    reward_percent === undefined
+                        ? undefined
+                        : asset.options.extensions.reward_percent,
                 market_fee_percent: asset.options.market_fee_percent,
                 description: assetUtils.parseDescription(
                     asset.options.description
@@ -117,7 +159,6 @@ class AccountAssetUpdate extends React.Component {
             core_exchange_rate: core_exchange_rate,
             issuer: asset.issuer,
             new_issuer_account_id: null,
-            issuer_account_name: null,
             new_funder_account: props.account.get("id"),
             asset_to_update: asset.id,
             errors: {
@@ -151,6 +192,7 @@ class AccountAssetUpdate extends React.Component {
                 "options",
                 "whitelist_markets"
             ]),
+            whitelist_market_fee_sharing: whitelist_market_fee_sharing_val,
             blacklist_markets: props.asset.getIn([
                 "options",
                 "blacklist_markets"
@@ -170,6 +212,18 @@ class AccountAssetUpdate extends React.Component {
                   })
                 : null
         };
+    }
+
+    hideAssetUpdateConfirmationModal() {
+        this.setState({
+            isAssetUpdateConfirmationModalVisible: false
+        });
+    }
+
+    showAssetUpdateConfirmationModal() {
+        this.setState({
+            isAssetUpdateConfirmationModalVisible: true
+        });
     }
 
     // Using JSON.stringify for (fast?) comparsion, could be improved, but seems enough here as the order is fixed
@@ -192,7 +246,9 @@ class AccountAssetUpdate extends React.Component {
             JSON.stringify(s.whitelist_markets) !==
                 JSON.stringify(p.whitelist_markets) ||
             JSON.stringify(s.blacklist_markets) !==
-                JSON.stringify(p.blacklist_markets)
+                JSON.stringify(p.blacklist_markets) ||
+            JSON.stringify(s.whitelist_market_fee_sharing) !==
+                JSON.stringify(p.whitelist_market_fee_sharing)
         );
     }
 
@@ -208,6 +264,7 @@ class AccountAssetUpdate extends React.Component {
 
         let tabUpdateIndex = [];
 
+        /* Primary */
         if (
             s.update.max_supply !== p.update.max_supply ||
             s.core_exchange_rate.base.amount !==
@@ -217,6 +274,7 @@ class AccountAssetUpdate extends React.Component {
         )
             tabUpdateIndex["0"] = true;
 
+        /* Whitelist */
         if (
             JSON.stringify(s.whitelist_authorities) !==
                 JSON.stringify(p.whitelist_authorities) ||
@@ -225,10 +283,13 @@ class AccountAssetUpdate extends React.Component {
             JSON.stringify(s.whitelist_markets) !==
                 JSON.stringify(p.whitelist_markets) ||
             JSON.stringify(s.blacklist_markets) !==
-                JSON.stringify(p.blacklist_markets)
+                JSON.stringify(p.blacklist_markets) ||
+            JSON.stringify(s.whitelist_market_fee_sharing) !==
+                JSON.stringify(p.whitelist_market_fee_sharing)
         )
             tabUpdateIndex["1"] = true;
 
+        /* Description */
         if (
             s.update.description.main !== p.update.description.main ||
             s.update.description.short_name !==
@@ -237,38 +298,35 @@ class AccountAssetUpdate extends React.Component {
         )
             tabUpdateIndex["2"] = true;
 
+        /* Bitasset options */
         if (
             JSON.stringify(s.bitasset_opts) !==
             JSON.stringify(p.original_bitasset_opts)
         )
             tabUpdateIndex["3"] = true;
 
-        if (
-            s.new_issuer_account_id !== null &&
-            s.new_issuer_account_id !== s.issuer
-        )
-            tabUpdateIndex["4"] = true;
-
+        /* Permissions */
         if (
             JSON.stringify(s.permissionBooleans) !==
             JSON.stringify(p.permissionBooleans)
         )
-            tabUpdateIndex["5"] = true;
+            tabUpdateIndex["4"] = true;
+
+        /* Flags */
 
         if (
             JSON.stringify(s.flagBooleans) !== JSON.stringify(p.flagBooleans) ||
             s.update.market_fee_percent !== p.update.market_fee_percent ||
-            s.update.max_market_fee !== p.update.max_market_fee
+            s.update.max_market_fee !== p.update.max_market_fee ||
+            s.update.reward_percent !== p.update.reward_percent
         )
-            tabUpdateIndex["6"] = true;
-
-        // Tab 7 == Fee Pool
+            tabUpdateIndex["5"] = true;
 
         if (
             JSON.stringify(s.feedProducers) !==
             JSON.stringify(p.originalFeedProducers)
         )
-            tabUpdateIndex["8"] = true;
+            tabUpdateIndex["6"] = true;
 
         return tabUpdateIndex;
     }
@@ -297,7 +355,7 @@ class AccountAssetUpdate extends React.Component {
         e.preventDefault();
 
         // Close confirm_modal if it's open
-        this.refs.confirm_modal.onClose();
+        this.hideAssetUpdateConfirmationModal();
 
         let {
             update,
@@ -336,7 +394,9 @@ class AccountAssetUpdate extends React.Component {
             whitelist_authorities: this.state.whitelist_authorities,
             blacklist_authorities: this.state.blacklist_authorities,
             whitelist_markets: this.state.whitelist_markets,
-            blacklist_markets: this.state.blacklist_markets
+            blacklist_markets: this.state.blacklist_markets,
+            whitelist_market_fee_sharing: this.state
+                .whitelist_market_fee_sharing
         };
 
         let feedProducersJS = isBitAsset ? feedProducers.toJS() : null;
@@ -452,8 +512,11 @@ class AccountAssetUpdate extends React.Component {
                 bitasset_opts[value] = e;
                 break;
 
-            default:
+            case "minimum_feeds":
                 bitasset_opts[value] = parseInt(e.target.value, 10);
+                break;
+
+            default:
                 break;
         }
 
@@ -471,7 +534,9 @@ class AccountAssetUpdate extends React.Component {
             case "market_fee_percent":
                 update[value] = this._forcePositive(e.target.value);
                 break;
-
+            case "reward_percent":
+                update[value] = this._forcePositive(e.target.value);
+                break;
             case "max_market_fee":
                 let marketFee = e.amount.replace(/,/g, "");
                 if (
@@ -689,8 +754,35 @@ class AccountAssetUpdate extends React.Component {
         this._validateEditFields({});
     }
 
+    _getCurrentSupply() {
+        const {asset, getDynamicObject} = this.props;
+
+        return (
+            getDynamicObject &&
+            getDynamicObject(asset.get("dynamic_asset_data_id")).get(
+                "current_supply"
+            )
+        );
+    }
+
     _onPermissionChange(key) {
-        let booleans = this.state.permissionBooleans;
+        const {isBitAsset, permissionBooleans} = this.state;
+
+        const disabled = !assetUtils.getFlagBooleans(
+            this.props.asset.getIn(["options", "issuer_permissions"]),
+            isBitAsset
+        )[key];
+
+        if (this._getCurrentSupply() > 0 && disabled) {
+            Notification.error({
+                message: counterpart.translate(
+                    "account.user_issued_assets.invalid_permissions_change"
+                )
+            });
+            return;
+        }
+
+        let booleans = permissionBooleans;
         booleans[key] = !booleans[key];
         this.setState({
             permissionBooleans: booleans
@@ -703,16 +795,11 @@ class AccountAssetUpdate extends React.Component {
         });
     }
 
-    _onClaimFees() {
-        AssetActions.claimPoolFees(
-            this.props.account.get("id"),
-            this.props.asset,
-            this.state.claimFeesAmount.replace(/,/g, "")
-        );
-    }
-
     onChangeList(key, action = "add", id) {
         let current = this.state[key];
+        if (current === undefined) {
+            current = new Immutable.List([]);
+        }
         if (action === "add" && !current.includes(id)) {
             current = current.push(id);
         } else if (action === "remove" && current.includes(id)) {
@@ -733,7 +820,7 @@ class AccountAssetUpdate extends React.Component {
     }
 
     render() {
-        let {account, asset, core} = this.props;
+        let {asset} = this.props;
         let {
             errors,
             isValid,
@@ -783,20 +870,14 @@ class AccountAssetUpdate extends React.Component {
                             <td style={{border: "none", width: "80%"}}>
                                 <Translate
                                     content={`account.user_issued_assets.${key}`}
-                                />:
+                                />
+                                :
                             </td>
-                            <td style={{border: "none"}}>
-                                <div
-                                    className="switch"
-                                    style={{marginBottom: "10px"}}
-                                    onClick={onClick}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                    />
-                                    <label />
-                                </div>
+                            <td style={{border: "none", textAlign: "right"}}>
+                                <Switch
+                                    checked={isChecked}
+                                    onChange={onClick}
+                                />
                             </td>
                         </tr>
                     </tbody>
@@ -839,24 +920,17 @@ class AccountAssetUpdate extends React.Component {
                                 <td style={{border: "none", width: "80%"}}>
                                     <Translate
                                         content={`account.user_issued_assets.${key}`}
-                                    />:
+                                    />
+                                    :
                                 </td>
                                 <td style={{border: "none"}}>
-                                    <div
-                                        className="switch"
-                                        style={{marginBottom: "10px"}}
-                                        onClick={this._onPermissionChange.bind(
+                                    <Switch
+                                        checked={permissionBooleans[key]}
+                                        onChange={this._onPermissionChange.bind(
                                             this,
                                             key
                                         )}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={permissionBooleans[key]}
-                                            onChange={() => {}}
-                                        />
-                                        <label />
-                                    </div>
+                                    />
                                 </td>
                             </tr>
                         </tbody>
@@ -898,28 +972,6 @@ class AccountAssetUpdate extends React.Component {
                     <Translate content="account.perm.reset" />
                 </button>
             </div>
-        );
-
-        const dynamicObject = this.props.getDynamicObject(
-            asset.get("dynamic_asset_data_id")
-        );
-        let unclaimedBalance = dynamicObject
-            ? dynamicObject.get("accumulated_fees")
-            : 0;
-        let validClaim =
-            claimFeesAmount > 0 &&
-            utils.get_asset_precision(asset.get("precision")) *
-                claimFeesAmount <=
-                unclaimedBalance;
-
-        let unclaimedBalanceText = (
-            <span>
-                <Translate component="span" content="transfer.available" />:&nbsp;
-                <FormattedAsset
-                    amount={unclaimedBalance}
-                    asset={asset.get("id")}
-                />
-            </span>
         );
 
         let cerValid = false;
@@ -1123,7 +1175,8 @@ class AccountAssetUpdate extends React.Component {
                                         </div>
                                         <div>
                                             <h5>
-                                                <Translate content="exchange.price" />:{" "}
+                                                <Translate content="exchange.price" />
+                                                :{" "}
                                                 <FormattedPrice
                                                     style={{fontWeight: "bold"}}
                                                     quote_amount={
@@ -1156,8 +1209,8 @@ class AccountAssetUpdate extends React.Component {
 
                                     {
                                         <p>
-                                            <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                            {updateFee}
+                                            <Translate content="account.user_issued_assets.approx_fee" />
+                                            : {updateFee}
                                         </p>
                                     }
                                 </div>
@@ -1171,6 +1224,9 @@ class AccountAssetUpdate extends React.Component {
                                     whiteListEnabled={
                                         flagBooleans["white_list"]
                                     }
+                                    marketFeeEnabled={
+                                        flagBooleans["charge_market_fee"]
+                                    }
                                     whitelist_authorities={
                                         this.state.whitelist_authorities
                                     }
@@ -1179,6 +1235,14 @@ class AccountAssetUpdate extends React.Component {
                                     }
                                     whitelist_markets={
                                         this.state.whitelist_markets
+                                    }
+                                    whitelist_market_fee_sharing={
+                                        this.state
+                                            .whitelist_market_fee_sharing ===
+                                        undefined
+                                            ? new Immutable.List([])
+                                            : this.state
+                                                  .whitelist_market_fee_sharing
                                     }
                                     blacklist_markets={
                                         this.state.blacklist_markets
@@ -1197,8 +1261,8 @@ class AccountAssetUpdate extends React.Component {
                                 >
                                     {
                                         <p>
-                                            <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                            {updateFee}
+                                            <Translate content="account.user_issued_assets.approx_fee" />
+                                            : {updateFee}
                                         </p>
                                     }
                                 </AssetWhitelist>
@@ -1312,8 +1376,8 @@ class AccountAssetUpdate extends React.Component {
 
                                     {
                                         <p>
-                                            <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                            {updateFee}
+                                            <Translate content="account.user_issued_assets.approx_fee" />
+                                            : {updateFee}
                                         </p>
                                     }
                                 </div>
@@ -1337,11 +1401,17 @@ class AccountAssetUpdate extends React.Component {
                                                 "precision"
                                             )}
                                             assetSymbol={asset.get("symbol")}
+                                            disableBackingAssetChange={
+                                                this._getCurrentSupply() > 0
+                                            }
+                                            disabledBackingAssetChangeCallback={
+                                                disabledBackingAssetChangeCallback
+                                            }
                                         />
                                         {
                                             <p>
-                                                <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                                {updateFee}
+                                                <Translate content="account.user_issued_assets.approx_fee" />
+                                                : {updateFee}
                                             </p>
                                         }
                                     </div>
@@ -1349,50 +1419,8 @@ class AccountAssetUpdate extends React.Component {
                             ) : null}
 
                             <Tab
-                                title="account.user_issued_assets.update_owner"
-                                updatedTab={this.tabChanged(4)}
-                            >
-                                <div className="small-12 large-8 large-offset-2 grid-content">
-                                    <div style={{paddingBottom: "1rem"}}>
-                                        <AccountSelector
-                                            label="account.user_issued_assets.current_issuer"
-                                            accountName={account.get("name")}
-                                            account={account.get("name")}
-                                            error={null}
-                                            tabIndex={1}
-                                            disabled={true}
-                                        />
-                                    </div>
-                                    <AccountSelector
-                                        label="account.user_issued_assets.new_issuer"
-                                        accountName={
-                                            this.state.issuer_account_name
-                                        }
-                                        onChange={this.onAccountNameChanged.bind(
-                                            this,
-                                            "issuer_account_name"
-                                        )}
-                                        onAccountChanged={this.onAccountChanged.bind(
-                                            this,
-                                            "new_issuer_account_id"
-                                        )}
-                                        account={this.state.issuer_account_name}
-                                        error={null}
-                                        tabIndex={1}
-                                        typeahead={true}
-                                    />
-                                    {
-                                        <p>
-                                            <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                            {updateFee}
-                                        </p>
-                                    }
-                                </div>
-                            </Tab>
-
-                            <Tab
                                 title="account.permissions"
-                                updatedTab={this.tabChanged(5)}
+                                updatedTab={this.tabChanged(4)}
                             >
                                 <div className="small-12 large-8 large-offset-2 grid-content">
                                     <HelpContent
@@ -1405,8 +1433,8 @@ class AccountAssetUpdate extends React.Component {
                                     {permissions}
                                     {
                                         <p>
-                                            <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                            {updateFee}
+                                            <Translate content="account.user_issued_assets.approx_fee" />
+                                            : {updateFee}
                                         </p>
                                     }
                                 </div>
@@ -1414,7 +1442,7 @@ class AccountAssetUpdate extends React.Component {
 
                             <Tab
                                 title="account.user_issued_assets.flags"
-                                updatedTab={this.tabChanged(6)}
+                                updatedTab={this.tabChanged(5)}
                             >
                                 <div className="small-12 large-8 large-offset-2 grid-content">
                                     <HelpContent
@@ -1425,54 +1453,32 @@ class AccountAssetUpdate extends React.Component {
                                         "charge_market_fee"
                                     ] ? (
                                         <div>
-                                            <Translate
-                                                component="h3"
-                                                content="account.user_issued_assets.market_fee"
-                                            />
-                                            <table className="table">
-                                                <tbody>
-                                                    <tr>
-                                                        <td
-                                                            style={{
-                                                                border: "none",
-                                                                width: "80%"
-                                                            }}
-                                                        >
-                                                            <Translate content="account.user_issued_assets.charge_market_fee" />:
-                                                        </td>
-                                                        <td
-                                                            style={{
-                                                                border: "none"
-                                                            }}
-                                                        >
-                                                            <div
-                                                                className="switch"
-                                                                style={{
-                                                                    marginBottom:
-                                                                        "10px"
-                                                                }}
-                                                                onClick={this._onFlagChange.bind(
-                                                                    this,
-                                                                    "charge_market_fee"
-                                                                )}
-                                                            >
-                                                                <input
-                                                                    type="checkbox"
-                                                                    onChange={() => {}}
-                                                                    checked={
-                                                                        flagBooleans.charge_market_fee
-                                                                    }
-                                                                />
-                                                                <label />
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
+                                            <h3>
+                                                <Translate
+                                                    component="span"
+                                                    content="account.user_issued_assets.market_fee"
+                                                    style={{
+                                                        paddingRight: "20px"
+                                                    }}
+                                                />
+                                                <Switch
+                                                    checked={
+                                                        flagBooleans.charge_market_fee
+                                                    }
+                                                    onChange={this._onFlagChange.bind(
+                                                        this,
+                                                        "charge_market_fee"
+                                                    )}
+                                                />
+                                            </h3>
                                             <div
                                                 className={cnames({
                                                     disabled: !flagBooleans.charge_market_fee
                                                 })}
+                                                style={{
+                                                    marginTop: "10px",
+                                                    marginLeft: "30px"
+                                                }}
                                             >
                                                 <label>
                                                     <Translate content="account.user_issued_assets.market_fee" />{" "}
@@ -1488,7 +1494,6 @@ class AccountAssetUpdate extends React.Component {
                                                         )}
                                                     />
                                                 </label>
-
                                                 <label>
                                                     <AmountSelector
                                                         label="account.user_issued_assets.max_market_fee"
@@ -1507,6 +1512,28 @@ class AccountAssetUpdate extends React.Component {
                                                         tabIndex={1}
                                                     />
                                                 </label>
+                                                <div>
+                                                    <label>
+                                                        <Tooltip
+                                                            title={counterpart.translate(
+                                                                "account.user_issued_assets.reward_percent_tooltip"
+                                                            )}
+                                                        >
+                                                            <Translate content="account.user_issued_assets.reward_percent" />{" "}
+                                                            (%)
+                                                        </Tooltip>
+                                                        <input
+                                                            type="number"
+                                                            value={
+                                                                update.reward_percent
+                                                            }
+                                                            onChange={this._onUpdateInput.bind(
+                                                                this,
+                                                                "reward_percent"
+                                                            )}
+                                                        />
+                                                    </label>
+                                                </div>
                                                 {errors.max_market_fee ? (
                                                     <p className="grid-content has-error">
                                                         {errors.max_market_fee}
@@ -1515,15 +1542,14 @@ class AccountAssetUpdate extends React.Component {
                                             </div>
                                         </div>
                                     ) : null}
-
                                     <h3>
                                         <Translate content="account.user_issued_assets.flags" />
                                     </h3>
                                     {flags}
                                     {
                                         <p>
-                                            <Translate content="account.user_issued_assets.approx_fee" />:{" "}
-                                            {updateFee}
+                                            <Translate content="account.user_issued_assets.approx_fee" />
+                                            : {updateFee}
                                         </p>
                                     }
                                     {errors.conflict_producer ? (
@@ -1534,75 +1560,10 @@ class AccountAssetUpdate extends React.Component {
                                 </div>
                             </Tab>
 
-                            <Tab title="explorer.asset.fee_pool.title">
-                                <div className="small-12 large-8 large-offset-2 grid-content">
-                                    <FundFeePool
-                                        asset={asset.get("symbol")}
-                                        funderAccountName={this.props.account.get(
-                                            "name"
-                                        )}
-                                    />
-
-                                    {/* Claim fees, disabled until witness node update gets pushed to openledger*/}
-
-                                    <Translate
-                                        component="h3"
-                                        content="transaction.trxTypes.asset_claim_fees"
-                                    />
-                                    <Translate
-                                        component="p"
-                                        content="explorer.asset.fee_pool.claim_text"
-                                        asset={asset.get("symbol")}
-                                    />
-                                    <div style={{paddingBottom: "1rem"}}>
-                                        <Translate content="explorer.asset.fee_pool.unclaimed_issuer_income" />:&nbsp;
-                                        {dynamicObject ? (
-                                            <FormattedAsset
-                                                amount={dynamicObject.get(
-                                                    "accumulated_fees"
-                                                )}
-                                                asset={asset.get("id")}
-                                            />
-                                        ) : null}
-                                    </div>
-
-                                    <AmountSelector
-                                        label="transfer.amount"
-                                        display_balance={unclaimedBalanceText}
-                                        amount={claimFeesAmount}
-                                        onChange={this._onClaimInput.bind(this)}
-                                        asset={asset.get("id")}
-                                        assets={[asset.get("id")]}
-                                        placeholder="0.0"
-                                        tabIndex={1}
-                                        style={{width: "100%", paddingTop: 16}}
-                                    />
-
-                                    <div style={{paddingTop: "1rem"}}>
-                                        <button
-                                            className={classnames("button", {
-                                                disabled: !validClaim
-                                            })}
-                                            onClick={this._onClaimFees.bind(
-                                                this
-                                            )}
-                                        >
-                                            <Translate content="explorer.asset.fee_pool.claim_fees" />
-                                        </button>
-                                        <button
-                                            className="button outline"
-                                            onClick={this._reset.bind(this)}
-                                        >
-                                            <Translate content="account.perm.reset" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </Tab>
-
                             {isBitAsset ? (
                                 <Tab
                                     title="account.user_issued_assets.feed_producers"
-                                    updatedTab={this.tabChanged(8)}
+                                    updatedTab={this.tabChanged(6)}
                                 >
                                     <AssetFeedProducers
                                         asset={this.props.asset}
@@ -1633,8 +1594,9 @@ class AccountAssetUpdate extends React.Component {
                 </div>
                 {/* Confirmation Modal on Multiple Changes */}
                 <ConfirmModal
-                    modalId="asset_update_modal"
-                    ref="confirm_modal"
+                    visible={this.state.isAssetUpdateConfirmationModalVisible}
+                    hideModal={this.hideAssetUpdateConfirmationModal}
+                    showModal={this.showAssetUpdateConfirmationModal}
                     tabsChanged={this.tabsChanged()}
                     _cancelConfirm={this._cancelConfirm.bind(this)}
                     _updateAsset={this._updateAsset.bind(this)}
@@ -1656,28 +1618,32 @@ AccountAssetUpdate = AssetWrapper(AccountAssetUpdate, {
 class ConfirmModal extends React.Component {
     constructor() {
         super();
-        this.state = {open: false};
-    }
-
-    show() {
-        this.setState({open: true}, () => {
-            ZfApi.publish(this.props.modalId, "open");
-        });
-    }
-
-    onClose() {
-        this.setState({open: false});
     }
 
     render() {
         let {tabsChanged} = this.props;
 
-        return !this.state.open ? null : (
-            <BaseModal
-                id={this.props.modalId}
-                overlay={true}
-                modalHeader="account.confirm_asset_modal.header"
-                noLogo
+        const footer = [
+            <Button
+                type="primary"
+                key="submit"
+                onClick={this.props._updateAsset}
+            >
+                {counterpart.translate("global.confirm")}
+            </Button>,
+            <Button key="cancel" onClick={this.props.hideModal}>
+                {counterpart.translate("global.cancel")}
+            </Button>
+        ];
+
+        return (
+            <Modal
+                visible={this.props.visible}
+                footer={footer}
+                onCancel={this.props.hideModal}
+                title={counterpart.translate(
+                    "account.confirm_asset_modal.header"
+                )}
             >
                 <Translate
                     content="account.confirm_asset_modal.are_you_sure"
@@ -1706,52 +1672,34 @@ class ConfirmModal extends React.Component {
                                 <Translate content="account.user_issued_assets.bitasset_opts" />
                             </li>
                         ) : null}
+
                         {tabsChanged["4"] ? (
-                            <li>
-                                <Translate content="account.user_issued_assets.update_owner" />
-                            </li>
-                        ) : null}
-                        {tabsChanged["5"] ? (
                             <li>
                                 <Translate content="account.permissions" />
                             </li>
                         ) : null}
-                        {tabsChanged["6"] ? (
+                        {tabsChanged["5"] ? (
                             <li>
                                 <Translate content="account.user_issued_assets.flags" />
                             </li>
                         ) : null}
 
                         {/* NEEDS CHECKING */}
-                        {tabsChanged["8"] ? (
+                        {tabsChanged["6"] ? (
                             <li>
                                 <Translate content="account.user_issued_assets.feed_producers" />
                             </li>
                         ) : null}
                     </ul>
                 </div>
-                <div>
-                    <button
-                        className="button primary"
-                        onClick={this.props._updateAsset.bind(this)}
-                    >
-                        <Translate content="global.confirm" />
-                    </button>
-                    <button
-                        className="button primary hollow"
-                        onClick={this.props._cancelConfirm.bind(this)}
-                    >
-                        <Translate content="global.cancel" />
-                    </button>
-                </div>
-            </BaseModal>
+            </Modal>
         );
     }
 }
 
 class AssetUpdateWrapper extends React.Component {
     render() {
-        let asset = this.props.match.params.asset;
+        let asset = this.props.match.params.asset.toUpperCase();
         return <AccountAssetUpdate asset={asset} {...this.props} />;
     }
 }

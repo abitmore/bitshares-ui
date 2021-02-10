@@ -2,27 +2,25 @@ import React from "react";
 import PropTypes from "prop-types";
 import Immutable from "immutable";
 import Ps from "perfect-scrollbar";
-import Translate from "react-translate-component";
-import market_utils from "common/market_utils";
-import PriceText from "../Utility/PriceText";
-import cnames from "classnames";
 import SettingsActions from "actions/SettingsActions";
 import SettingsStore from "stores/SettingsStore";
 import {connect} from "alt-react";
-import TransitionWrapper from "../Utility/TransitionWrapper";
-import AssetName from "../Utility/AssetName";
-import {ChainTypes as grapheneChainTypes} from "bitsharesjs/es";
+import {ChainTypes as grapheneChainTypes} from "bitsharesjs";
 const {operations} = grapheneChainTypes;
-import BlockDate from "../Utility/BlockDate";
-import counterpart from "counterpart";
 import ReactTooltip from "react-tooltip";
-import getLocale from "browser-locale";
+import {FillOrder} from "common/MarketClasses";
+import {
+    MarketHistoryView,
+    MarketHistoryViewRow
+} from "./View/MarketHistoryView";
 
 class MarketHistory extends React.Component {
     constructor(props) {
         super();
         this.state = {
-            activeTab: props.viewSettings.get("historyTab", "history")
+            activeTab: props.viewSettings.get("historyTab", "history"),
+            rowCount: 20,
+            showAll: false
         };
     }
 
@@ -32,22 +30,101 @@ class MarketHistory extends React.Component {
             nextProps.baseSymbol !== this.props.baseSymbol ||
             nextProps.quoteSymbol !== this.props.quoteSymbol ||
             nextProps.className !== this.props.className ||
+            nextProps.activeTab !== this.props.activeTab ||
             nextState.activeTab !== this.state.activeTab ||
-            nextProps.currentAccount !== this.props.currentAccount
+            nextState.showAll !== this.state.showAll ||
+            nextProps.currentAccount !== this.props.currentAccount ||
+            nextProps.isPanelActive !== this.props.isPanelActive ||
+            nextProps.hideScrollbars !== this.props.hideScrollbars
         );
     }
 
     componentDidMount() {
-        let historyContainer = this.refs.history;
-        Ps.initialize(historyContainer);
+        if (!this.props.hideScrollbars) {
+            this.updateContainer(1);
+        }
     }
 
-    componentDidUpdate() {
-        let historyContainer = this.refs.history;
-        Ps.update(historyContainer);
+    componentDidUpdate(prevState) {
+        let {hideScrollbars} = this.props;
+        let {showAll} = this.state;
+
+        if (prevState.showAll != showAll) {
+            if (showAll && !hideScrollbars) {
+                this.updateContainer(2);
+            } else if (!showAll && !hideScrollbars) {
+                this.updateContainer(3);
+            } else if (showAll && hideScrollbars) {
+                this.updateContainer(1);
+            } else {
+                this.updateContainer(0);
+            }
+        }
     }
 
-    _changeTab(tab) {
+    componentWillReceiveProps(nextProps) {
+        if (nextProps.activeTab !== this.props.activeTab) {
+            this.changeTab(nextProps.activeTab);
+        }
+
+        // Reset on Market Switch
+        if (
+            nextProps.baseSymbol !== this.props.baseSymbol ||
+            nextProps.quoteSymbol !== this.props.quoteSymbol
+        ) {
+            this.setState({showAll: false});
+            this.updateContainer(0);
+
+            if (!this.props.hideScrollbars) {
+                this.updateContainer(1);
+            }
+        }
+
+        // Reset on hideScrollbars switch
+        if (nextProps.hideScrollbars !== this.props.hideScrollbars) {
+            this.updateContainer(0);
+
+            if (!nextProps.hideScrollbars) {
+                this.updateContainer(1);
+            }
+        }
+    }
+
+    /***
+     * Update PS Container
+     * type:int [0:destroy, 1:init, 2:update, 3:update w/ scrollTop] (default: 2)
+     */
+    updateContainer(type = 2) {
+        let containerNode = this.refs.view.refs.history;
+        let containerTransition = this.refs.view.refs.historyTransition;
+
+        if (!containerNode) return;
+
+        if (type == 0) {
+            containerNode.scrollTop = 0;
+            Ps.destroy(containerNode);
+        } else if (type == 1) {
+            Ps.initialize(containerNode);
+            this.updateContainer(3);
+        } else if (type == 2) {
+            Ps.update(containerNode);
+        } else if (type == 3) {
+            containerNode.scrollTop = 0;
+            Ps.update(containerNode);
+        }
+
+        if (containerTransition) {
+            containerTransition.resetAnimation();
+        }
+    }
+
+    onSetShowAll() {
+        this.setState({
+            showAll: !this.state.showAll
+        });
+    }
+
+    changeTab(tab) {
         SettingsActions.changeViewSetting({
             historyTab: tab
         });
@@ -56,9 +133,7 @@ class MarketHistory extends React.Component {
         });
 
         // Ensure that focus goes back to top of scrollable container when tab is changed
-        let historyNode = this.refs.history;
-        historyNode.scrollTop = 0;
-        Ps.update(historyNode);
+        this.updateContainer(3);
 
         setTimeout(ReactTooltip.rebuild, 1000);
     }
@@ -71,9 +146,10 @@ class MarketHistory extends React.Component {
             quote,
             baseSymbol,
             quoteSymbol,
-            isNullAccount
+            isNullAccount,
+            activeTab
         } = this.props;
-        let {activeTab} = this.state;
+        let {rowCount, showAll} = this.state;
         let historyRows = null;
 
         if (isNullAccount) {
@@ -81,9 +157,17 @@ class MarketHistory extends React.Component {
         }
 
         if (activeTab === "my_history" && (myHistory && myHistory.size)) {
-            let keyIndex = -1;
-            let flipped =
-                base.get("id").split(".")[2] > quote.get("id").split(".")[2];
+            // User History
+
+            const assets = {
+                [quote.get("id")]: {
+                    precision: quote.get("precision")
+                },
+                [base.get("id")]: {
+                    precision: base.get("precision")
+                }
+            };
+
             historyRows = myHistory
                 .filter(a => {
                     let opType = a.getIn(["op", 0]);
@@ -102,183 +186,61 @@ class MarketHistory extends React.Component {
                     return b.get("block_num") - a.get("block_num");
                 })
                 .map(trx => {
-                    let order = trx.toJS().op[1];
-                    keyIndex++;
-                    let paysAsset,
-                        receivesAsset,
-                        isAsk = false;
-                    if (order.pays.asset_id === base.get("id")) {
-                        paysAsset = base;
-                        receivesAsset = quote;
-                        isAsk = true;
-                    } else {
-                        paysAsset = quote;
-                        receivesAsset = base;
-                    }
-
-                    let parsed_order = market_utils.parse_order_history(
-                        order,
-                        paysAsset,
-                        receivesAsset,
-                        isAsk,
-                        flipped
+                    let fill = new FillOrder(
+                        trx.toJS(),
+                        assets,
+                        quote.get("id")
                     );
-                    const block_num = trx.get("block_num");
+
                     return (
-                        <tr key={"my_history_" + keyIndex}>
-                            <td className={parsed_order.className}>
-                                <PriceText preFormattedPrice={parsed_order} />
-                            </td>
-                            <td>{parsed_order.receives}</td>
-                            <td>{parsed_order.pays}</td>
-                            <BlockDate
-                                component="td"
-                                block_number={block_num}
-                                tooltip
-                            />
-                        </tr>
+                        <MarketHistoryViewRow
+                            key={fill.id}
+                            fill={fill}
+                            base={base}
+                            quote={quote}
+                        />
                     );
                 })
                 .toArray();
         } else if (history && history.size) {
-            let index = 0;
-            let keyIndex = -1;
-            let flipped =
-                base.get("id").split(".")[2] > quote.get("id").split(".")[2];
+            // Market History
             historyRows = this.props.history
-                .filter(() => {
-                    index++;
-                    return index % 2 === 0;
-                })
                 .take(100)
-                .map(order => {
-                    keyIndex++;
-                    let paysAsset,
-                        receivesAsset,
-                        isAsk = false;
-                    if (order.pays.asset_id === base.get("id")) {
-                        paysAsset = base;
-                        receivesAsset = quote;
-                        isAsk = true;
-                    } else {
-                        paysAsset = quote;
-                        receivesAsset = base;
-                    }
-                    let parsed_order = market_utils.parse_order_history(
-                        order,
-                        paysAsset,
-                        receivesAsset,
-                        isAsk,
-                        flipped
-                    );
+                .map(fill => {
                     return (
-                        <tr key={"history_" + keyIndex}>
-                            <td className={parsed_order.className}>
-                                <PriceText preFormattedPrice={parsed_order} />
-                            </td>
-                            <td>{parsed_order.receives}</td>
-                            <td>{parsed_order.pays}</td>
-                            <td
-                                className="tooltip"
-                                data-tip={new Date(order.time)}
-                            >
-                                {counterpart.localize(new Date(order.time), {
-                                    type: "date",
-                                    format:
-                                        getLocale()
-                                            .toLowerCase()
-                                            .indexOf("en-us") !== -1
-                                            ? "market_history_us"
-                                            : "market_history"
-                                })}
-                            </td>
-                        </tr>
+                        <MarketHistoryViewRow
+                            key={fill.id}
+                            fill={fill}
+                            base={base}
+                            quote={quote}
+                        />
                     );
                 })
                 .toArray();
         }
 
-        let hc = "mymarkets-header clickable";
-        let historyClass = cnames(hc, {inactive: activeTab === "my_history"});
-        let myHistoryClass = cnames(hc, {inactive: activeTab === "history"});
+        let totalRows = historyRows ? historyRows.length : null;
+        if (!showAll && historyRows) {
+            historyRows.splice(rowCount, historyRows.length);
+        }
 
         return (
-            <div className={this.props.className}>
-                <div
-                    className="exchange-bordered small-12"
-                    style={{height: 266}}
-                >
-                    <div
-                        style={this.props.headerStyle}
-                        className="grid-block shrink left-orderbook-header bottom-header"
-                    >
-                        <div
-                            className={cnames(myHistoryClass, {
-                                disabled: isNullAccount
-                            })}
-                            onClick={this._changeTab.bind(this, "my_history")}
-                        >
-                            <Translate content="exchange.my_history" />
-                        </div>
-                        <div
-                            className={historyClass}
-                            onClick={this._changeTab.bind(this, "history")}
-                        >
-                            <Translate content="exchange.history" />
-                        </div>
-                    </div>
-                    <div className="grid-block shrink left-orderbook-header market-right-padding-only">
-                        <table className="table order-table text-right fixed-table market-right-padding">
-                            <thead>
-                                <tr>
-                                    <th>
-                                        <Translate
-                                            className="header-sub-title"
-                                            content="exchange.price"
-                                        />
-                                    </th>
-                                    <th>
-                                        <span className="header-sub-title">
-                                            <AssetName
-                                                dataPlace="top"
-                                                name={quoteSymbol}
-                                            />
-                                        </span>
-                                    </th>
-                                    <th>
-                                        <span className="header-sub-title">
-                                            <AssetName
-                                                dataPlace="top"
-                                                name={baseSymbol}
-                                            />
-                                        </span>
-                                    </th>
-                                    <th>
-                                        <Translate
-                                            className="header-sub-title"
-                                            content="explorer.block.date"
-                                        />
-                                    </th>
-                                </tr>
-                            </thead>
-                        </table>
-                    </div>
-                    <div
-                        className="table-container grid-block market-right-padding-only no-overflow"
-                        ref="history"
-                        style={{maxHeight: 210, overflow: "hidden"}}
-                    >
-                        <table className="table order-table text-right fixed-table market-right-padding">
-                            <TransitionWrapper
-                                component="tbody"
-                                transitionName="newrow"
-                            >
-                                {historyRows}
-                            </TransitionWrapper>
-                        </table>
-                    </div>
-                </div>
-            </div>
+            <MarketHistoryView
+                ref="view"
+                className={this.props.className}
+                innerClass={this.props.innerClass}
+                innerStyle={this.props.innerStyle}
+                noHeader={this.props.noHeader}
+                headerStyle={this.props.headerStyle}
+                activeTab={activeTab}
+                quoteSymbol={quoteSymbol}
+                baseSymbol={baseSymbol}
+                tinyScreen={this.props.tinyScreen}
+                historyRows={historyRows}
+                totalRows={totalRows}
+                showAll={showAll}
+                onSetShowAll={this.onSetShowAll.bind(this)}
+            />
         );
     }
 }
@@ -291,13 +253,16 @@ MarketHistory.propTypes = {
     history: PropTypes.object.isRequired
 };
 
-export default connect(MarketHistory, {
-    listenTo() {
-        return [SettingsStore];
-    },
-    getProps() {
-        return {
-            viewSettings: SettingsStore.getState().viewSettings
-        };
+export default connect(
+    MarketHistory,
+    {
+        listenTo() {
+            return [SettingsStore];
+        },
+        getProps() {
+            return {
+                viewSettings: SettingsStore.getState().viewSettings
+            };
+        }
     }
-});
+);

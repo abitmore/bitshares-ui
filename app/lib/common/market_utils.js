@@ -1,5 +1,5 @@
 import utils from "./utils";
-import {ChainStore, ChainTypes} from "bitsharesjs/es";
+import {ChainStore, ChainTypes} from "bitsharesjs";
 let {object_type} = ChainTypes;
 let opTypes = Object.keys(object_type);
 import {Asset} from "./MarketClasses";
@@ -53,18 +53,18 @@ const MarketUtils = {
         return value;
     },
 
-    getFeedPrice(settlement_price, invert = false) {
+    getFeedPrice(some_raw_price, invert = false) {
         let quoteAsset = ChainStore.getAsset(
-            settlement_price.getIn(["quote", "asset_id"])
+            some_raw_price.getIn(["quote", "asset_id"])
         );
         let baseAsset = ChainStore.getAsset(
-            settlement_price.getIn(["base", "asset_id"])
+            some_raw_price.getIn(["base", "asset_id"])
         );
 
         let price = utils.get_asset_price(
-            settlement_price.getIn(["quote", "amount"]),
+            some_raw_price.getIn(["quote", "amount"]),
             quoteAsset,
-            settlement_price.getIn(["base", "amount"]),
+            some_raw_price.getIn(["base", "amount"]),
             baseAsset
         );
 
@@ -144,8 +144,7 @@ const MarketUtils = {
             finalPrice = fromPrice;
         }
         if (!finalPrice) return null;
-        const finalId =
-            finalPrice.base.asset_id + "_" + finalPrice.quote.asset_id;
+        const finalId = [finalPrice.base.asset_id, finalPrice.quote.asset_id];
         if (
             finalId.indexOf(toAsset.get("id")) === -1 ||
             finalId.indexOf(fromAsset.get("id")) === -1
@@ -181,6 +180,8 @@ const MarketUtils = {
                   asset_id: fromAsset.get("id"),
                   precision: fromAsset.get("precision")
               });
+
+        if (!toAsset) return;
 
         let price = this.getFinalPrice(
             coreAsset,
@@ -275,7 +276,7 @@ const MarketUtils = {
             }
         } else if (!ask) {
             amount = this.limitByPrecision(
-                buy.amount / sell.amount * order.for_sale / quotePrecision,
+                ((buy.amount / sell.amount) * order.for_sale) / quotePrecision,
                 quote
             );
             value = order.for_sale / basePrecision;
@@ -297,79 +298,6 @@ const MarketUtils = {
             value: value,
             price: price,
             amount: amount
-        };
-    },
-
-    parse_order_history(order, paysAsset, receivesAsset, isAsk, flipped) {
-        let isCall =
-            order.order_id.split(".")[1] == object_type.limit_order
-                ? false
-                : true;
-        let receivePrecision = utils.get_asset_precision(
-            receivesAsset.get("precision")
-        );
-        let payPrecision = utils.get_asset_precision(
-            paysAsset.get("precision")
-        );
-
-        let receives = order.receives.amount / receivePrecision;
-        receives = utils.format_number(
-            receives,
-            receivesAsset.get("precision")
-        );
-        let pays = order.pays.amount / payPrecision;
-        pays = utils.format_number(pays, paysAsset.get("precision"));
-        let price_full = utils.get_asset_price(
-            order.receives.amount,
-            receivesAsset,
-            order.pays.amount,
-            paysAsset,
-            isAsk
-        );
-        // price_full = !flipped ? (1 / price_full) : price_full;
-        // let {int, dec} = this.split_price(price_full, isAsk ? receivesAsset.get("precision") : paysAsset.get("precision"));
-
-        let {int, dec, trailing} = utils.price_to_text(
-            price_full,
-            isAsk ? receivesAsset : paysAsset,
-            isAsk ? paysAsset : receivesAsset
-        );
-        let className = isCall
-            ? "orderHistoryCall"
-            : isAsk
-                ? "orderHistoryBid"
-                : "orderHistoryAsk";
-
-        let time;
-        if (order.time) {
-            time = order.time.split("T")[1];
-            let now = new Date();
-            let offset = now.getTimezoneOffset() / 60;
-            let date = utils.format_date(order.time).split(/\W/);
-            let hour = time.substr(0, 2);
-            let hourNumber = parseInt(hour, 10);
-            let localHour = hourNumber - offset;
-            if (localHour >= 24) {
-                localHour -= 24;
-            } else if (localHour < 0) {
-                localHour += 24;
-            }
-            let hourString = localHour.toString();
-            if (parseInt(hourString, 10) < 10) {
-                hourString = "0" + hourString;
-            }
-            time =
-                date[0] + "/" + date[1] + " " + time.replace(hour, hourString);
-        }
-        return {
-            receives: isAsk ? receives : pays,
-            pays: isAsk ? pays : receives,
-            full: price_full,
-            int: int,
-            dec: dec,
-            trailing: trailing,
-            className: className,
-            time: time
         };
     },
 

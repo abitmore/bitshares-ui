@@ -2,7 +2,6 @@ import alt from "alt-instance";
 import SettingsActions from "actions/SettingsActions";
 import IntlActions from "actions/IntlActions";
 import Immutable, {fromJS} from "immutable";
-import {merge} from "lodash-es";
 import ls from "common/localStorage";
 import {Apis} from "bitsharesjs-ws";
 import {settingsAPIs} from "api/apiConfig";
@@ -19,16 +18,22 @@ const CORE_ASSET = "BTS"; // Setting this to BTS to prevent loading issues when 
 const STORAGE_KEY = "__graphene__";
 let ss = new ls(STORAGE_KEY);
 
+/**
+ * SettingsStore takes care of maintaining user set settings values and notifies all listeners
+ */
 class SettingsStore {
     constructor() {
         this.exportPublicMethods({
             init: this.init.bind(this),
             getSetting: this.getSetting.bind(this),
             getLastBudgetObject: this.getLastBudgetObject.bind(this),
-            setLastBudgetObject: this.setLastBudgetObject.bind(this)
+            setLastBudgetObject: this.setLastBudgetObject.bind(this),
+            hasAnyPriceAlert: this.hasAnyPriceAlert.bind(this)
         });
 
+        // bind actions to store
         this.bindListeners({
+            onSetPriceAlert: SettingsActions.setPriceAlert,
             onSetExchangeLastExpiration:
                 SettingsActions.setExchangeLastExpiration,
             onSetExchangeTutorialShown:
@@ -48,117 +53,25 @@ class SettingsStore {
             onClearSettings: SettingsActions.clearSettings,
             onSwitchLocale: IntlActions.switchLocale,
             onSetUserMarket: SettingsActions.setUserMarket,
-            onUpdateLatencies: SettingsActions.updateLatencies
+            onUpdateLatencies: SettingsActions.updateLatencies,
+            onModifyPreferedBases: SettingsActions.modifyPreferedBases,
+            onUpdateUnits: SettingsActions.updateUnits,
+            onHideNewsHeadline: SettingsActions.hideNewsHeadline,
+            onAddChartLayout: SettingsActions.addChartLayout,
+            onDeleteChartLayout: SettingsActions.deleteChartLayout
         });
 
         this.initDone = false;
-        this.defaultSettings = Immutable.Map({
-            locale: "en",
-            apiServer: settingsAPIs.DEFAULT_WS_NODE,
-            faucet_address: settingsAPIs.DEFAULT_FAUCET,
-            unit: CORE_ASSET,
-            showSettles: false,
-            showAssetPercent: false,
-            walletLockTimeout: 60 * 10,
-            themes: getDefaultTheme(),
-            passwordLogin: getDefaultLogin() == "password",
-            browser_notifications: {
-                allow: true,
-                additional: {
-                    transferToMe: true
-                }
-            }
-        });
 
-        // If you want a default value to be translated, add the translation to settings in locale-xx.js
-        // and use an object {translate: key} in the defaults array
-        let apiServer = settingsAPIs.WS_NODE_LIST;
+        this.settings = Immutable.Map(this._getSetting());
 
-        let defaults = {
-            locale: [
-                "en",
-                "zh",
-                "fr",
-                "ko",
-                "de",
-                "es",
-                "it",
-                "tr",
-                "ru",
-                "ja"
-            ],
-            apiServer: apiServer,
-            unit: getUnits(),
-            showSettles: [{translate: "yes"}, {translate: "no"}],
-            showAssetPercent: [{translate: "yes"}, {translate: "no"}],
-            themes: ["darkTheme", "lightTheme", "midnightTheme"],
-            passwordLogin: [
-                {translate: "cloud_login"},
-                {translate: "local_wallet"}
-            ]
-            // confirmMarketOrder: [
-            //     {translate: "confirm_yes"},
-            //     {translate: "confirm_no"}
-            // ]
-        };
+        // deprecated to support existing code
+        this.defaultSettings = Immutable.Map(this._getDefaultSetting());
 
-        this.settings = Immutable.Map(
-            merge(this.defaultSettings.toJS(), ss.get("settings_v3"))
-        );
-        if (this.settings.get("themes") === "olDarkTheme") {
-            this.settings = this.settings.set("themes", "midnightTheme");
-        }
-        let savedDefaults = ss.get("defaults_v1", {});
-        /* Fix for old clients after changing cn to zh */
-        if (savedDefaults && savedDefaults.locale) {
-            let cnIdx = savedDefaults.locale.findIndex(a => a === "cn");
-            if (cnIdx !== -1) savedDefaults.locale[cnIdx] = "zh";
-        }
-        if (savedDefaults && savedDefaults.themes) {
-            let olIdx = savedDefaults.themes.findIndex(
-                a => a === "olDarkTheme"
-            );
-            if (olIdx !== -1) savedDefaults.themes[olIdx] = "midnightTheme";
-        }
-
-        this.defaults = merge({}, defaults, savedDefaults);
-
-        (savedDefaults.apiServer || []).forEach(api => {
-            let hasApi = false;
-            if (typeof api === "string") {
-                api = {url: api, location: null};
-            }
-            this.defaults.apiServer.forEach(server => {
-                if (server.url === api.url) {
-                    hasApi = true;
-                }
-            });
-
-            if (!hasApi) {
-                this.defaults.apiServer.push(api);
-            }
-        });
-
-        if (
-            !savedDefaults ||
-            (savedDefaults &&
-                (!savedDefaults.apiServer || !savedDefaults.apiServer.length))
-        ) {
-            for (let i = apiServer.length - 1; i >= 0; i--) {
-                let hasApi = false;
-                this.defaults.apiServer.forEach(api => {
-                    if (api.url === apiServer[i].url) {
-                        hasApi = true;
-                    }
-                });
-                if (!hasApi) {
-                    this.defaults.apiServer.unshift(apiServer[i]);
-                }
-            }
-        }
+        // this should be called choices, defaults is confusing
+        this.defaults = this._getChoices();
 
         this.viewSettings = Immutable.Map(ss.get("viewSettings_v1"));
-
         this.marketDirections = Immutable.Map(ss.get("marketDirections"));
 
         this.hiddenAssets = Immutable.List(ss.get("hiddenAssets", []));
@@ -176,6 +89,357 @@ class SettingsStore {
         );
 
         this.exchange = fromJS(ss.get("exchange", {}));
+
+        this.priceAlert = fromJS(ss.get("priceAlert", []));
+
+        this.hiddenNewsHeadline = Immutable.List(
+            ss.get("hiddenNewsHeadline", [])
+        );
+
+        this.chartLayouts = Immutable.List(ss.get("chartLayouts", []));
+    }
+
+    /**
+     * Returns the default selected values that the user can reset to
+     * @returns dictionary
+     * @private
+     */
+    _getDefaultSetting() {
+        return {
+            locale: "en",
+            apiServer: settingsAPIs.DEFAULT_WS_NODE,
+            filteredApiServers: [],
+            filteredServiceProviders: ["all"],
+            faucet_address: settingsAPIs.DEFAULT_FAUCET,
+            unit: CORE_ASSET,
+            fee_asset: CORE_ASSET,
+            showSettles: false,
+            showAssetPercent: false,
+            walletLockTimeout: 60 * 10,
+            themes: getDefaultTheme(),
+            passwordLogin: getDefaultLogin() == "password",
+            browser_notifications: {
+                allow: true,
+                additional: {
+                    transferToMe: true
+                }
+            },
+            rememberMe: true,
+            viewOnlyMode: true,
+            showProposedTx: false
+        };
+    }
+
+    /**
+     * All possible choices for the settings
+     * @returns dictionary
+     * @private
+     */
+    _getDefaultChoices() {
+        return {
+            locale: [
+                "en",
+                "zh",
+                "fr",
+                "ko",
+                "de",
+                "es",
+                "it",
+                "tr",
+                "ru",
+                "ja"
+            ],
+            apiServer: settingsAPIs.WS_NODE_LIST.slice(0), // clone all default servers as configured in apiConfig.js
+            filteredApiServers: [[]],
+            filteredServiceProviders: [[]],
+            unit: getUnits(),
+            fee_asset: getUnits(),
+            showProposedTx: [{translate: "yes"}, {translate: "no"}],
+            showSettles: [{translate: "yes"}, {translate: "no"}],
+            showAssetPercent: [{translate: "yes"}, {translate: "no"}],
+            themes: ["darkTheme", "lightTheme", "midnightTheme"],
+            passwordLogin: [
+                {translate: "cloud_login"},
+                {translate: "local_wallet"}
+            ],
+            browser_notifications: {
+                allow: [true, false],
+                additional: {
+                    transferToMe: [true, false]
+                }
+            },
+            rememberMe: [true, false],
+            viewOnlyMode: [{translate: "show"}, {translate: "hide"}]
+        };
+    }
+
+    /**
+     * Checks if an object is actually empty (no keys or only empty keys)
+     * @param object
+     * @returns {boolean}
+     * @private
+     */
+    _isEmpty(object) {
+        let isEmpty = true;
+        Object.keys(object).forEach(key => {
+            if (object.hasOwnProperty(key) && object[key] !== null)
+                isEmpty = false;
+        });
+        return isEmpty;
+    }
+
+    /**
+     * Ensures that defauls are not stored in local storage, only changes, and when reading inserts all defaults.
+     *
+     * @param mode
+     * @param settings
+     * @param defaultSettings
+     * @returns {{}}
+     * @private
+     */
+    _replaceDefaults(mode = "saving", settings, defaultSettings = null) {
+        if (defaultSettings == null) {
+            // this method might be called recursively, so not always use the whole defaults
+            defaultSettings = this._getDefaultSetting();
+        }
+
+        let excludedKeys = ["activeNode"];
+
+        // avoid copy by reference
+        let returnSettings = {};
+        if (mode === "saving") {
+            // remove every setting that is default
+            Object.keys(settings).forEach(key => {
+                if (excludedKeys.includes(key)) {
+                    return;
+                }
+                // must be of same type to be compatible
+                if (typeof settings[key] === typeof defaultSettings[key]) {
+                    if (
+                        !(settings[key] instanceof Array) &&
+                        typeof settings[key] == "object"
+                    ) {
+                        let newSetting = this._replaceDefaults(
+                            "saving",
+                            settings[key],
+                            defaultSettings[key]
+                        );
+                        if (!this._isEmpty(newSetting)) {
+                            returnSettings[key] = newSetting;
+                        }
+                    } else if (settings[key] !== defaultSettings[key]) {
+                        // only save if its not the default
+                        if (settings[key] instanceof Array) {
+                            if (
+                                JSON.stringify(settings[key]) !==
+                                JSON.stringify(defaultSettings[key])
+                            ) {
+                                returnSettings[key] = settings[key];
+                            }
+                        } else {
+                            // only save if its not the default
+                            returnSettings[key] = settings[key];
+                        }
+                    }
+                }
+                // all other cases are defaults, do not put the value in local storage
+            });
+        } else {
+            Object.keys(defaultSettings).forEach(key => {
+                let setDefaults = false;
+                if (settings[key] !== undefined) {
+                    // exists in saved settings, check value
+                    if (typeof settings[key] !== typeof defaultSettings[key]) {
+                        // incompatible types, use default
+                        setDefaults = true;
+                    } else if (
+                        !(settings[key] instanceof Array) &&
+                        typeof settings[key] == "object"
+                    ) {
+                        // check all subkeys
+                        returnSettings[key] = this._replaceDefaults(
+                            "loading",
+                            settings[key],
+                            defaultSettings[key]
+                        );
+                    } else {
+                        returnSettings[key] = settings[key];
+                    }
+                } else {
+                    setDefaults = true;
+                }
+                if (setDefaults) {
+                    if (typeof settings[key] == "object") {
+                        // use defaults, deep copy
+                        returnSettings[key] = JSON.parse(
+                            JSON.stringify(defaultSettings[key])
+                        );
+                    } else {
+                        returnSettings[key] = defaultSettings[key];
+                    }
+                }
+            });
+            // copy all the rest as well
+            Object.keys(settings).forEach(key => {
+                if (returnSettings[key] == undefined) {
+                    // deep copy
+                    returnSettings[key] = JSON.parse(
+                        JSON.stringify(settings[key])
+                    );
+                }
+            });
+        }
+        return returnSettings;
+    }
+
+    /**
+     * Returns the currently active settings, either default or from local storage
+     * @returns {*}
+     * @private
+     */
+    _getSetting() {
+        // migrate to new settings
+        // - v3  defaults are stored as values which makes it impossible to react on changed defaults
+        // - v4  refactored complete settings handling. defaults are no longer stored in local storage and
+        //       set if not present on loading
+        let support_v3_until = new Date("2018-10-20T00:00:00Z");
+
+        if (!ss.has("settings_v4") && new Date() < support_v3_until) {
+            // ensure backwards compatibility of settings version
+            let settings_v3 = ss.get("settings_v3");
+            if (!!settings_v3) {
+                if (settings_v3["themes"] === "olDarkTheme") {
+                    settings_v3["themes"] = "midnightTheme";
+                }
+            }
+            this._saveSettings(settings_v3, this._getDefaultSetting());
+        }
+
+        return this._loadSettings();
+    }
+
+    /**
+     * Overwrite configuration while utilizing call-by-reference
+     * @param apiTarget
+     * @param apiSource
+     * @private
+     */
+    _injectApiConfiguration(apiTarget, apiSource) {
+        // any defaults in the apiConfig are to be maintained!
+        apiTarget.hidden = apiSource.hidden;
+    }
+
+    /**
+     * Save settings to local storage after checking for defaults
+     * @param settings
+     * @private
+     */
+    _saveSettings(settings = null) {
+        if (settings == null) {
+            settings = this.settings.toJS();
+        }
+        ss.set("settings_v4", this._replaceDefaults("saving", settings));
+    }
+
+    /**
+     * Load settings from local storage and fill in details
+     * @returns {{}}
+     * @private
+     */
+    _loadSettings() {
+        let userSavedSettings = ss.get("settings_v4");
+        // if (!!userSavedSettings) {
+        //     console.log("User settings have been loaded:", userSavedSettings);
+        // }
+        return this._replaceDefaults("loading", userSavedSettings);
+    }
+
+    /**
+     * Returns the currently active choices for settings, either default or from local storage
+     * @returns {*}
+     * @private
+     */
+    _getChoices() {
+        // default choices the user can select from
+        let choices = this._getDefaultChoices();
+        // get choices stored in local storage
+        let savedChoices = this._ensureBackwardsCompatibilityChoices(
+            ss.get("defaults_v1", {apiServer: []})
+        );
+
+        // merge choices by hand (do not use merge as the order in the apiServer list may change)
+        let mergedChoices = Object.assign({}, savedChoices);
+        Object.keys(choices).forEach(key => {
+            if (key != "apiServer") {
+                mergedChoices[key] = choices[key];
+            }
+        });
+        mergedChoices.apiServer = this._getApiServerChoices(
+            choices,
+            savedChoices
+        );
+        return mergedChoices;
+    }
+
+    /**
+     * Get all apiServer choices and mark the ones that are in the default choice as default
+     * @param choices
+     * @param savedChoices
+     * @returns {string}
+     * @private
+     */
+    _getApiServerChoices(choices, savedChoices) {
+        let apiServer = choices.apiServer.slice(0); // maintain order in apiConfig.js
+        // add any apis that the user added and update changes
+        savedChoices.apiServer.forEach(api => {
+            let found = apiServer.find(a => a.url == api.url);
+            if (!!found) {
+                this._injectApiConfiguration(found, api);
+            } else {
+                if (!api.default) {
+                    // always add personal nodes at end of existing nodes, arbitrary decision
+                    apiServer.push(api);
+                }
+            }
+        });
+        apiServer = apiServer.map(node => {
+            let found = choices.apiServer.find(a => a.url == node.url);
+            node.default = !!found;
+            node.hidden = !!node.hidden; // make sure this flag exists
+            return node;
+        });
+        return apiServer;
+    }
+
+    /**
+     * Adjust loaded choices for backwards compatibility if any key names or values change
+     * @param savedChoices
+     * @returns {*}
+     * @private
+     */
+    _ensureBackwardsCompatibilityChoices(savedChoices) {
+        /* Fix for old clients after changing cn to zh */
+        if (savedChoices && savedChoices.locale) {
+            let cnIdx = savedChoices.locale.findIndex(a => a === "cn");
+            if (cnIdx !== -1) savedChoices.locale[cnIdx] = "zh";
+        }
+        if (savedChoices && savedChoices.themes) {
+            let olIdx = savedChoices.themes.findIndex(a => a === "olDarkTheme");
+            if (olIdx !== -1) savedChoices.themes[olIdx] = "midnightTheme";
+        }
+        if (savedChoices && savedChoices.apiServer) {
+            savedChoices.apiServer = savedChoices.apiServer.map(api => {
+                // might be only a string, be backwards compatible
+                if (typeof api === "string") {
+                    api = {
+                        url: api,
+                        location: null
+                    };
+                }
+                return api;
+            });
+        }
+        return savedChoices;
     }
 
     init() {
@@ -183,6 +447,7 @@ class SettingsStore {
             if (this.initDone) resolve();
             this.starredKey = this._getChainKey("markets");
             this.marketsKey = this._getChainKey("userMarkets");
+            this.basesKey = this._getChainKey("preferredBases");
             // Default markets setup
             let topMarkets = {
                 markets_4018d784: getMyMarketsQuotes(),
@@ -206,30 +471,22 @@ class SettingsStore {
                 markets_39f5e2ed: "TEST"
             };
             let coreAsset = coreAssets[this.starredKey] || "BTS";
+            /*
+             * Update units depending on the chain, also make sure the 0 index
+             * asset is always the correct CORE asset name
+             */
+            this.onUpdateUnits();
             this.defaults.unit[0] = coreAsset;
 
-            let chainBases = bases[this.starredKey] || bases.markets_4018d784;
-            this.preferredBases = Immutable.List(chainBases);
+            let defaultBases = bases[this.starredKey] || bases.markets_4018d784;
+            let storedBases = ss.get(this.basesKey, []);
+            this.preferredBases = Immutable.List(
+                storedBases.length ? storedBases : defaultBases
+            );
 
-            function addMarkets(target, base, markets) {
-                markets
-                    .filter(a => {
-                        return a !== base;
-                    })
-                    .forEach(market => {
-                        target.push([
-                            `${market}_${base}`,
-                            {quote: market, base: base}
-                        ]);
-                    });
-            }
+            this.chainMarkets = topMarkets[this.starredKey] || [];
 
-            let defaultMarkets = [];
-            let chainMarkets = topMarkets[this.starredKey] || [];
-            this.preferredBases.forEach(base => {
-                addMarkets(defaultMarkets, base, chainMarkets);
-            });
-
+            let defaultMarkets = this._getDefaultMarkets();
             this.defaultMarkets = Immutable.Map(defaultMarkets);
             this.starredMarkets = Immutable.Map(ss.get(this.starredKey, []));
             this.userMarkets = Immutable.Map(ss.get(this.marketsKey, {}));
@@ -239,13 +496,35 @@ class SettingsStore {
         });
     }
 
+    _getDefaultMarkets() {
+        let markets = [];
+
+        this.preferredBases.forEach(base => {
+            addMarkets(markets, base, this.chainMarkets);
+        });
+
+        function addMarkets(target, base, markets) {
+            markets
+                .filter(a => {
+                    return a !== base;
+                })
+                .forEach(market => {
+                    target.push([
+                        `${market}_${base}`,
+                        {quote: market, base: base}
+                    ]);
+                });
+        }
+
+        return markets;
+    }
+
     getSetting(setting) {
         return this.settings.get(setting);
     }
 
     onChangeSetting(payload) {
-        this.settings = this.settings.set(payload.setting, payload.value);
-
+        let save = true;
         switch (payload.setting) {
             case "faucet_address":
                 if (payload.value.indexOf("testnet") === -1) {
@@ -257,23 +536,24 @@ class SettingsStore {
                 }
                 break;
 
-            case "apiServer":
-                let faucetUrl =
-                    payload.value.indexOf("testnet") !== -1
-                        ? this.testnet_faucet
-                        : this.mainnet_faucet;
-                this.settings = this.settings.set("faucet_address", faucetUrl);
-                break;
-
             case "walletLockTimeout":
                 ss.set("lockTimeout", payload.value);
                 break;
 
+            case "activeNode":
+                // doesnt need to be saved in local storage
+                save = true;
+
             default:
                 break;
         }
-
-        ss.set("settings_v3", this.settings.toJS());
+        // check current settings
+        if (this.settings.get(payload.setting) !== payload.value) {
+            this.settings = this.settings.set(payload.setting, payload.value);
+            if (save) {
+                this._saveSettings();
+            }
+        }
     }
 
     onChangeViewSetting(payload) {
@@ -286,10 +566,14 @@ class SettingsStore {
 
     onChangeMarketDirection(payload) {
         for (let key in payload) {
-            this.marketDirections = this.marketDirections.set(
-                key,
-                payload[key]
-            );
+            if (payload[key]) {
+                this.marketDirections = this.marketDirections.set(
+                    key,
+                    payload[key]
+                );
+            } else {
+                this.marketDirections = this.marketDirections.delete(key);
+            }
         }
         ss.set("marketDirections", this.marketDirections.toJS());
     }
@@ -389,9 +673,10 @@ class SettingsStore {
 
     onClearSettings(resolve) {
         ss.remove("settings_v3");
+        ss.remove("settings_v4");
         this.settings = this.defaultSettings;
 
-        ss.set("settings_v3", this.settings.toJS());
+        this._saveSettings();
 
         if (resolve) {
             resolve();
@@ -402,8 +687,12 @@ class SettingsStore {
         this.onChangeSetting({setting: "locale", value: locale});
     }
 
+    _getChainId() {
+        return (Apis.instance().chain_id || "4018d784").substr(0, 8);
+    }
+
     _getChainKey(key) {
-        const chainId = Apis.instance().chain_id;
+        const chainId = this._getChainId();
         return key + (chainId ? `_${chainId.substr(0, 8)}` : "");
     }
 
@@ -426,6 +715,24 @@ class SettingsStore {
         ss.set("exchange", this.exchange.toJS());
     }
 
+    getPriceAlert() {
+        return this.priceAlert.toJS();
+    }
+
+    onSetPriceAlert(value) {
+        this.priceAlert = fromJS(value);
+
+        ss.set("priceAlert", value);
+    }
+
+    hasAnyPriceAlert(quoteAssetSymbol, baseAssetSymbol) {
+        return this.priceAlert.some(
+            priceAlert =>
+                priceAlert.get("quoteAssetSymbol") === quoteAssetSymbol &&
+                priceAlert.get("baseAssetSymbol") === baseAssetSymbol
+        );
+    }
+
     getExchangeSettings(key) {
         return this.exchange.get(key);
     }
@@ -440,6 +747,81 @@ class SettingsStore {
 
     getExhchangeLastExpiration() {
         return this.getExchangeSettings("lastExpiration");
+    }
+
+    onModifyPreferedBases(payload) {
+        if ("newIndex" in payload && "oldIndex" in payload) {
+            /* Reorder */
+            let current = this.preferredBases.get(payload.newIndex);
+            this.preferredBases = this.preferredBases.set(
+                payload.newIndex,
+                this.preferredBases.get(payload.oldIndex)
+            );
+            this.preferredBases = this.preferredBases.set(
+                payload.oldIndex,
+                current
+            );
+        } else if ("remove" in payload) {
+            /* Remove */
+            this.preferredBases = this.preferredBases.delete(payload.remove);
+            let defaultMarkets = this._getDefaultMarkets();
+            this.defaultMarkets = Immutable.Map(defaultMarkets);
+        } else if ("add" in payload) {
+            /* Add new */
+            this.preferredBases = this.preferredBases.push(payload.add);
+            let defaultMarkets = this._getDefaultMarkets();
+            this.defaultMarkets = Immutable.Map(defaultMarkets);
+        }
+
+        ss.set(this.basesKey, this.preferredBases.toArray());
+    }
+
+    onUpdateUnits() {
+        this.defaults.unit = getUnits();
+        if (this.defaults.unit.indexOf(this.settings.get("unit")) === -1) {
+            this.settings = this.settings.set("unit", this.defaults.unit[0]);
+            this.settings = this.settings.set(
+                "fee_asset",
+                this.defaults.unit[0]
+            );
+        }
+    }
+
+    onHideNewsHeadline(payload) {
+        if (payload && this.hiddenNewsHeadline.indexOf(payload)) {
+            this.hiddenNewsHeadline = this.hiddenNewsHeadline.push(payload);
+            ss.set("hiddenNewsHeadline", this.hiddenNewsHeadline.toJS());
+        }
+    }
+
+    onAddChartLayout(value) {
+        if (value.name) {
+            value.enabled = true;
+            const index = this.chartLayouts.findIndex(
+                item => item.name === value.name && item.symbol === value.symbol
+            );
+            if (index !== -1) {
+                this.chartLayouts = this.chartLayouts.delete(index);
+            }
+            this.chartLayouts = this.chartLayouts.map(item => {
+                if (item.symbol === value.symbol) item.enabled = false;
+                return item;
+            });
+            this.chartLayouts = this.chartLayouts.push(value);
+            ss.set("chartLayouts", this.chartLayouts.toJS());
+        }
+    }
+
+    onDeleteChartLayout(name) {
+        if (name) {
+            const index = this.chartLayouts.findIndex(
+                item => item.name === name
+            );
+            if (index !== -1) {
+                this.chartLayouts = this.chartLayouts.delete(index);
+            }
+            ss.set("chartLayouts", this.chartLayouts.toJS());
+        }
     }
 }
 

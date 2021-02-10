@@ -4,7 +4,7 @@ import ChainTypes from "./ChainTypes";
 import BindToChainState from "./BindToChainState";
 import utils from "common/utils";
 import marketUtils from "common/market_utils";
-import {ChainStore} from "bitsharesjs/es";
+import {ChainStore} from "bitsharesjs";
 import {connect} from "alt-react";
 import MarketsStore from "stores/MarketsStore";
 import SettingsStore from "stores/SettingsStore";
@@ -13,8 +13,8 @@ import Translate from "react-translate-component";
 import counterpart from "counterpart";
 import MarketStatsCheck from "./MarketStatsCheck";
 import AssetWrapper from "./AssetWrapper";
-import ReactTooltip from "react-tooltip";
 import PropTypes from "prop-types";
+import {Tooltip} from "bitshares-ui-style-guide";
 
 /**
  *  Given an asset amount, displays the equivalent value in baseAsset if possible
@@ -56,13 +56,7 @@ class TotalValue extends MarketStatsCheck {
         );
     }
 
-    componentDidUpdate() {
-        if (this.props.inHeader) {
-            ReactTooltip.rebuild();
-        }
-    }
-
-    _convertValue(amount, fromAsset, toAsset, marketStats, coreAsset) {
+    _convertValue(amount, fromAsset, toAsset, allMarketStats, coreAsset) {
         if (!fromAsset || !toAsset) {
             return 0;
         }
@@ -71,7 +65,7 @@ class TotalValue extends MarketStatsCheck {
             amount,
             toAsset,
             fromAsset,
-            marketStats,
+            allMarketStats,
             coreAsset
         );
     }
@@ -91,7 +85,7 @@ class TotalValue extends MarketStatsCheck {
             fromAssets,
             toAsset,
             balances,
-            marketStats,
+            allMarketStats,
             collateral,
             debt,
             openOrders,
@@ -121,7 +115,7 @@ class TotalValue extends MarketStatsCheck {
                     collateral[asset],
                     fromAsset,
                     toAsset,
-                    marketStats,
+                    allMarketStats,
                     coreAsset
                 );
                 totalValue += collateralValue;
@@ -141,7 +135,7 @@ class TotalValue extends MarketStatsCheck {
                     openOrders[asset],
                     fromAsset,
                     toAsset,
-                    marketStats,
+                    allMarketStats,
                     coreAsset
                 );
                 totalValue += orderValue;
@@ -161,7 +155,7 @@ class TotalValue extends MarketStatsCheck {
                     debt[asset],
                     fromAsset,
                     toAsset,
-                    marketStats,
+                    allMarketStats,
                     coreAsset
                 );
                 totalValue -= debtValue;
@@ -183,7 +177,7 @@ class TotalValue extends MarketStatsCheck {
                               balance.amount,
                               fromAsset,
                               toAsset,
-                              marketStats,
+                              allMarketStats,
                               coreAsset
                           )
                         : balance.amount;
@@ -282,30 +276,27 @@ class TotalValue extends MarketStatsCheck {
             );
         } else {
             return (
-                <div
-                    className="tooltip inline-block"
-                    data-tip={totalsTip}
-                    data-place="bottom"
-                    data-html={true}
-                >
-                    {!!this.props.label ? (
-                        <span className="font-secondary">
-                            <Translate content={this.props.label} />:{" "}
-                        </span>
-                    ) : null}
-                    <FormattedAsset
-                        noTip
-                        noPrefix
-                        hide_asset={this.props.hide_asset}
-                        amount={totalValue}
-                        asset={toAsset.get("id")}
-                        decimalOffset={
-                            toAsset.get("symbol").indexOf("BTC") === -1
-                                ? toAsset.get("precision") - 2
-                                : 4
-                        }
-                    />
-                </div>
+                <Tooltip placement="bottom" title={totalsTip}>
+                    <div className="tooltip inline-block">
+                        {!!this.props.label ? (
+                            <span className="font-secondary">
+                                <Translate content={this.props.label} />:{" "}
+                            </span>
+                        ) : null}
+                        <FormattedAsset
+                            noTip
+                            noPrefix
+                            hide_asset={this.props.hide_asset}
+                            amount={totalValue}
+                            asset={toAsset.get("id")}
+                            decimalOffset={
+                                toAsset.get("symbol").indexOf("BTC") === -1
+                                    ? toAsset.get("precision") - 2
+                                    : 4
+                            }
+                        />
+                    </div>
+                </Tooltip>
             );
         }
     }
@@ -318,23 +309,28 @@ TotalValue = AssetWrapper(TotalValue, {
 
 class ValueStoreWrapper extends React.Component {
     render() {
-        let preferredUnit = this.props.settings.get("unit") || "1.3.0";
+        let preferredUnit = !this.props.settings.get("unit")
+            ? "1.3.0"
+            : this.props.settings.get("unit");
 
         return <TotalValue {...this.props} toAsset={preferredUnit} />;
     }
 }
 
-ValueStoreWrapper = connect(ValueStoreWrapper, {
-    listenTo() {
-        return [MarketsStore, SettingsStore];
-    },
-    getProps() {
-        return {
-            marketStats: MarketsStore.getState().allMarketStats,
-            settings: SettingsStore.getState().settings
-        };
+ValueStoreWrapper = connect(
+    ValueStoreWrapper,
+    {
+        listenTo() {
+            return [MarketsStore, SettingsStore];
+        },
+        getProps() {
+            return {
+                allMarketStats: MarketsStore.getState().allMarketStats,
+                settings: SettingsStore.getState().settings
+            };
+        }
     }
-});
+);
 
 class TotalBalanceValue extends React.Component {
     static propTypes = {

@@ -1,7 +1,7 @@
 import React from "react";
 import ChainTypes from "../Utility/ChainTypes";
 import BindToChainState from "../Utility/BindToChainState";
-import {ChainTypes as GraphChainTypes, ChainStore} from "bitsharesjs/es";
+import {ChainTypes as GraphChainTypes, ChainStore} from "bitsharesjs";
 import counterpart from "counterpart";
 import utils from "common/utils";
 import Notify from "notifyjs";
@@ -99,11 +99,15 @@ class BrowserNotifications extends React.Component {
             }
         );
 
+        let realAmount = this._getRealAmountByAssetId(amount, assetId);
+        let symbol = this._getAssetSymbolByAssetId(assetId);
+        if (realAmount === null || symbol === null) return;
+
         const body = counterpart.translate(
             "browser_notification_messages.money_received_body",
             {
-                amount: this._getRealAmountByAssetId(amount, assetId),
-                symbol: this._getAssetSymbolByAssetId(assetId)
+                amount: realAmount,
+                symbol
             }
         );
 
@@ -151,13 +155,13 @@ class BrowserNotifications extends React.Component {
 
     _getRealAmountByAssetId(amount, assetId) {
         const asset = ChainStore.getAsset(assetId);
-
+        if (!asset) return null;
         return utils.get_asset_amount(amount, asset);
     }
 
     _getAssetSymbolByAssetId(assetId) {
         const asset = ChainStore.getAsset(assetId);
-
+        if (!asset) return null;
         return asset.get("symbol");
     }
 

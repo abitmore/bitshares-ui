@@ -20,7 +20,8 @@ class DepthHighChart extends React.Component {
             settleCheck ||
             nextProps.feedPrice !== this.props.feedPrice ||
             nextProps.height !== this.props.height ||
-            nextProps.leftOrderBook !== this.props.leftOrderBook ||
+            nextProps.isPanelActive !== this.props.isPanelActive ||
+            nextProps.activePanels !== this.props.activePanels ||
             nextProps.LCP !== this.props.LCP ||
             nextProps.showCallLimit !== this.props.showCallLimit ||
             nextProps.hasPrediction !== this.props.hasPrediction ||
@@ -36,7 +37,7 @@ class DepthHighChart extends React.Component {
     componentWillReceiveProps(nextProps) {
         if (
             this.refs.depthChart &&
-            nextProps.verticalOrderbook !== this.props.verticalOrderbook
+            nextProps.activePanels !== this.props.activePanels
         ) {
             this.reflowChart(100);
         }
@@ -274,17 +275,59 @@ class DepthHighChart extends React.Component {
 
         // Market asset
         if (this.props.LCP) {
+            let bitAsset = base.get("bitasset_data_id") ? base : quote;
+
+            let mcr =
+                bitAsset.getIn([
+                    "bitasset",
+                    "current_feed",
+                    "maintenance_collateral_ratio"
+                ]) / 1000;
+
+            let sqr =
+                bitAsset.getIn([
+                    "bitasset",
+                    "current_feed",
+                    "maximum_short_squeeze_ratio"
+                ]) / 1000;
+
+            let settlement_support_price = this.props.invertedCalls
+                ? (this.props.LCP / mcr) * sqr
+                : (this.props.LCP * mcr) / sqr;
+
             config.xAxis.plotLines.push({
                 color: axisLineColor,
                 id: "plot_line",
                 dashStyle: "longdash",
                 value: this.props.LCP,
                 label: {
-                    text: counterpart.translate("explorer.block.call_limit"),
+                    text: counterpart.translate("explorer.block.call_limit", {
+                        price: this.props.LCP.toFixed(4)
+                    }),
                     style: {
                         color: primaryText,
                         fontWeight: "bold"
-                    }
+                    },
+                    x: !this.props.invertedCalls ? -10 : 5
+                },
+                width: 2,
+                zIndex: 5
+            });
+
+            config.xAxis.plotLines.push({
+                color: axisLineColor,
+                id: "plot_line",
+                dashStyle: "longdash",
+                value: settlement_support_price,
+                label: {
+                    text: counterpart.translate("explorer.block.gs_support", {
+                        price: settlement_support_price.toFixed(4)
+                    }),
+                    style: {
+                        color: primaryText,
+                        fontWeight: "bold"
+                    },
+                    x: this.props.invertedCalls ? -10 : 5
                 },
                 width: 2,
                 zIndex: 5
@@ -292,21 +335,21 @@ class DepthHighChart extends React.Component {
         }
 
         // if (this.props.SQP) {
-        //	 config.xAxis.plotLines.push({
-        //		 color: "#B6B6B6",
-        //		 id: "plot_line",
-        //		 dashStyle: "longdash",
-        //		 value: this.props.SQP * power,
-        //		 label: {
-        //			 text: counterpart.translate("exchange.squeeze"),
-        //			 style: {
-        //				 color: "#DADADA",
-        //				 fontWeight: "bold"
-        //			 }
-        //		 },
-        //		 width: 2,
-        //		 zIndex: 5
-        //	 });
+        // 	 config.xAxis.plotLines.push({
+        // 		 color: "#B6B6B6",
+        // 		 id: "plot_line",
+        // 		 dashStyle: "longdash",
+        // 		 value: this.props.SQP * power,
+        // 		 label: {
+        // 			 text: counterpart.translate("exchange.squeeze"),
+        // 			 style: {
+        // 				 color: "#DADADA",
+        // 				 fontWeight: "bold"
+        // 			 }
+        // 		 },
+        // 		 width: 2,
+        // 		 zIndex: 5
+        // 	 });
         // }
 
         if (feedPrice) {
@@ -317,11 +360,14 @@ class DepthHighChart extends React.Component {
                 dashStyle: "solid",
                 value: feedPrice,
                 label: {
-                    text: counterpart.translate("explorer.block.feed_price"),
+                    text: counterpart.translate("explorer.block.feed_price", {
+                        price: feedPrice.toFixed(4)
+                    }),
                     style: {
                         color: primaryText,
                         fontWeight: "bold"
-                    }
+                    },
+                    x: !this.props.invertedCalls ? -10 : 5
                 },
                 width: 2,
                 zIndex: 5
@@ -418,7 +464,7 @@ class DepthHighChart extends React.Component {
         } else {
             return (
                 <div className="grid-content no-overflow no-padding middle-content">
-                    <div className="exchange-bordered" style={{margin: 10}}>
+                    <div className="exchange-bordered" id="depth_chart">
                         <div className="exchange-content-header">
                             {this.props.noText ? null : (
                                 <span className="bid-total">

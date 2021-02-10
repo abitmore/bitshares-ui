@@ -1,4 +1,4 @@
-import {ChainStore} from "bitsharesjs/es";
+import {ChainStore} from "bitsharesjs";
 import Immutable from "immutable";
 
 let KeyAuth = function(auth) {
@@ -160,6 +160,7 @@ let permissionUtils = {
         let map = [];
         accounts.forEach(id => {
             let fullAccount = ChainStore.getAccount(id);
+            if (!fullAccount) return;
             let currentPermission = this.unravel(
                 new this.AccountPermission(fullAccount, null, type),
                 type

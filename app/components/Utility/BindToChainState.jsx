@@ -1,6 +1,6 @@
 import React from "react";
 import {curry, flow, reject, clone, toPairs, omit, get, pick} from "lodash-es";
-import {ChainStore} from "bitsharesjs/es";
+import {ChainStore} from "bitsharesjs";
 import ChainTypes from "./ChainTypes";
 import utils from "common/utils";
 import {getDisplayName} from "common/reactUtils";
@@ -60,6 +60,8 @@ function BindToChainState(Component, options = {}) {
     class Wrapper extends React.Component {
         constructor(props) {
             super(props);
+            this.hasErrored = false;
+
             let prop_types_array = toPairs(Component.propTypes);
             if (options && options.all_props) {
                 this.chain_objects = reject(
@@ -78,34 +80,84 @@ function BindToChainState(Component, options = {}) {
                 this.all_chain_props = this.chain_objects;
             } else {
                 this.chain_objects = prop_types_array
-                    .filter(flow(secondEl, isObjectType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isObjectType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_accounts = prop_types_array
-                    .filter(flow(secondEl, isAccountType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isAccountType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_account_names = prop_types_array
-                    .filter(flow(secondEl, isAccountNameType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isAccountNameType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_key_refs = prop_types_array
-                    .filter(flow(secondEl, isKeyRefsType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isKeyRefsType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_address_balances = prop_types_array
-                    .filter(flow(secondEl, isAddressBalancesType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isAddressBalancesType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_assets = prop_types_array
-                    .filter(flow(secondEl, isAssetType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isAssetType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_objects_list = prop_types_array
-                    .filter(flow(secondEl, isObjectsListType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isObjectsListType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_accounts_list = prop_types_array
-                    .filter(flow(secondEl, isAccountsListType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isAccountsListType
+                        )
+                    )
                     .map(firstEl);
                 this.chain_assets_list = prop_types_array
-                    .filter(flow(secondEl, isAssetsListType))
+                    .filter(
+                        flow(
+                            secondEl,
+                            isAssetsListType
+                        )
+                    )
                     .map(firstEl);
                 this.required_props = prop_types_array
-                    .filter(flow(secondEl, checkIfRequired))
+                    .filter(
+                        flow(
+                            secondEl,
+                            checkIfRequired
+                        )
+                    )
                     .map(firstEl);
                 this.all_chain_props = [
                     ...this.chain_objects,
@@ -148,6 +200,21 @@ function BindToChainState(Component, options = {}) {
             );
         }
 
+        componentDidCatch(error, errorInfo) {
+            this._errored(error, errorInfo);
+        }
+
+        _errored(error, errorInfo) {
+            console.error(
+                `BindToChainState(${getDisplayName(Component)})`,
+                error,
+                errorInfo
+            );
+            this.setState({
+                hasErrored: true
+            });
+        }
+
         componentWillMount() {
             ChainStore.subscribe(this.update);
             this.update();
@@ -184,8 +251,14 @@ function BindToChainState(Component, options = {}) {
         }
 
         update(next_props = null) {
-            // let updateStart = new Date().getTime();
+            try {
+                this._update(next_props);
+            } catch (err) {
+                this._errored(err);
+            }
+        }
 
+        _update(next_props = null) {
             let props = next_props || this.props;
             let new_state = {};
             let all_objects_counter = 0;
@@ -227,6 +300,13 @@ function BindToChainState(Component, options = {}) {
                 if (prop) {
                     if (prop[0] === "#" && Number.parseInt(prop.substring(1)))
                         prop = "1.2." + prop.substring(1);
+                    if (
+                        prop instanceof Map &&
+                        !!prop.get("name") &&
+                        prop.size == 1
+                    ) {
+                        prop = prop.get("name");
+                    }
                     let new_obj = ChainStore.getAccount(
                         prop,
                         this.default_props["autosubscribe"]
@@ -310,8 +390,10 @@ function BindToChainState(Component, options = {}) {
                     props[key] ||
                     this.dynamic_props[key] ||
                     this.default_props[key];
+
                 if (prop) {
                     let new_obj = ChainStore.getBalanceObjects(prop);
+
                     if (
                         new_obj === undefined &&
                         this.required_props.indexOf(key) === -1 &&
@@ -347,6 +429,7 @@ function BindToChainState(Component, options = {}) {
                         new_obj === null
                     )
                         new_state[key] = new_obj;
+
                     ++all_objects_counter;
                     if (new_obj !== undefined) ++resolved_objects_counter;
                 } else {
@@ -375,7 +458,6 @@ function BindToChainState(Component, options = {}) {
                     let index = 0;
                     prop.forEach(obj_id => {
                         ++index;
-                        //console.log("-- Wrapper.chain_objects_list item -->", obj_id, index);
                         if (obj_id) {
                             let new_obj = ChainStore.getObject(
                                 obj_id,
@@ -489,8 +571,29 @@ function BindToChainState(Component, options = {}) {
                 new_state.resolved = true;
 
             let stateChanged = false;
-            for (let key in new_state) {
-                if (!utils.are_equal_shallow(new_state[key], this.state[key])) {
+
+            /*
+             * are_equal_shallow won't correctly compare null to undefined, so
+             * we need to work around it by assigning a non-falsy value instead
+             * of null before making the comparison
+             */
+            function replaceNull(state) {
+                let temp = {};
+                for (let key in state) {
+                    if (state[key] === null) temp[key] = "null";
+                    else temp[key] = state[key];
+                }
+                return temp;
+            }
+            let temp_state = replaceNull(this.state);
+            let temp_new_state = replaceNull(new_state);
+            for (let key in temp_new_state) {
+                if (
+                    !utils.are_equal_shallow(
+                        temp_new_state[key],
+                        temp_state[key]
+                    )
+                ) {
                     stateChanged = true;
                 } else {
                     delete new_state[key];
@@ -515,8 +618,30 @@ function BindToChainState(Component, options = {}) {
             const props = omit(this.props, this.all_chain_props);
             for (let prop of this.required_props) {
                 if (this.state[prop] === undefined) {
-                    if (typeof options !== "undefined" && options.show_loader) {
-                        return <LoadingIndicator />;
+                    if (this.hasErrored) {
+                        return (
+                            <span style={{color: "red"}}>
+                                Error rendering component, please report (see
+                                browser console for details)
+                            </span>
+                        );
+                    } else if (
+                        typeof options !== "undefined" &&
+                        options.show_loader
+                    ) {
+                        console.error(
+                            "Required prop " +
+                                prop +
+                                " isn't given, but still loading, this indicates that the rendering transitions are not well defined"
+                        );
+                        return (
+                            <React.Fragment>
+                                <LoadingIndicator />
+                                <span className="text-center">
+                                    Component re-rendering ...
+                                </span>
+                            </React.Fragment>
+                        );
                     } else {
                         // returning a temp component of the desired type prevents invariant violation errors, notably when rendering tr components
                         // to use, specicy a defaultProps field of tempComponent: "tr" (or "div", "td", etc as desired)

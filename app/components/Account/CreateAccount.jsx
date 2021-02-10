@@ -3,10 +3,9 @@ import {connect} from "alt-react";
 import classNames from "classnames";
 import AccountActions from "actions/AccountActions";
 import AccountStore from "stores/AccountStore";
-import AccountNameInput from "./../Forms/AccountNameInput";
+import AccountNameInput from "./../Forms/AccountNameInputStyleGuide";
 import PasswordInput from "./../Forms/PasswordInput";
 import WalletDb from "stores/WalletDb";
-import notify from "actions/NotificationActions";
 import {Link} from "react-router-dom";
 import AccountSelect from "../Forms/AccountSelect";
 import WalletUnlockActions from "actions/WalletUnlockActions";
@@ -14,7 +13,7 @@ import TransactionConfirmStore from "stores/TransactionConfirmStore";
 import LoadingIndicator from "../LoadingIndicator";
 import WalletActions from "actions/WalletActions";
 import Translate from "react-translate-component";
-import {ChainStore, FetchChain} from "bitsharesjs/es";
+import {ChainStore, FetchChain} from "bitsharesjs";
 import {BackupCreate} from "../Wallet/Backup";
 import ReactTooltip from "react-tooltip";
 import utils from "common/utils";
@@ -23,6 +22,7 @@ import counterpart from "counterpart";
 import {withRouter} from "react-router-dom";
 import {scroller} from "react-scroll";
 import {getWalletName} from "branding";
+import {Notification} from "bitshares-ui-style-guide";
 
 class CreateAccount extends React.Component {
     constructor() {
@@ -164,10 +164,14 @@ class CreateAccount extends React.Component {
                                 ? error.base[0]
                                 : "unknown error";
                         if (error.remote_ip) error_msg = error.remote_ip[0];
-                        notify.addNotification({
-                            message: `Failed to create account: ${name} - ${error_msg}`,
-                            level: "error",
-                            autoDismiss: 10
+                        Notification.error({
+                            message: counterpart.translate(
+                                "notifications.account_create_failure",
+                                {
+                                    account_name: name,
+                                    error_msg: error_msg
+                                }
+                            )
                         });
                         this.setState({loading: false});
                     });
@@ -187,10 +191,13 @@ class CreateAccount extends React.Component {
             })
             .catch(err => {
                 console.log("CreateWallet failed:", err);
-                notify.addNotification({
-                    message: `Failed to create wallet: ${err}`,
-                    level: "error",
-                    autoDismiss: 10
+                Notification.error({
+                    message: counterpart.translate(
+                        "notifications.account_wallet_create_failure",
+                        {
+                            error_msg: err
+                        }
+                    )
                 });
             });
     }
@@ -244,6 +251,7 @@ class CreateAccount extends React.Component {
                 style={{maxWidth: "40rem"}}
                 onSubmit={this.onSubmit.bind(this)}
                 noValidate
+                className="create-account-wrapper"
             >
                 <p
                     style={{
@@ -546,7 +554,11 @@ class CreateAccount extends React.Component {
         let {step} = this.state;
 
         return (
-            <div className="sub-content" id="scrollToInput" name="scrollToInput">
+            <div
+                className="sub-content"
+                id="scrollToInput"
+                name="scrollToInput"
+            >
                 <div style={{maxWidth: "95vw"}}>
                     {step !== 1 ? (
                         <p
@@ -586,11 +598,14 @@ class CreateAccount extends React.Component {
 
 CreateAccount = withRouter(CreateAccount);
 
-export default connect(CreateAccount, {
-    listenTo() {
-        return [AccountStore];
-    },
-    getProps() {
-        return {};
+export default connect(
+    CreateAccount,
+    {
+        listenTo() {
+            return [AccountStore];
+        },
+        getProps() {
+            return {};
+        }
     }
-});
+);

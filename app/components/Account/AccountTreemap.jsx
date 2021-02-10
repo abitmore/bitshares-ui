@@ -4,12 +4,13 @@ import Treemap from "highcharts/modules/treemap";
 import Heatmap from "highcharts/modules/heatmap";
 import utils from "common/utils";
 import ChainTypes from "../Utility/ChainTypes";
-import {ChainStore} from "bitsharesjs/es";
+import {ChainStore} from "bitsharesjs";
 import BindToChainState from "../Utility/BindToChainState";
 import AltContainer from "alt-container";
 import MarketUtils from "common/market_utils";
 import MarketsStore from "stores/MarketsStore";
 import SettingsStore from "stores/SettingsStore";
+import {Link, withRouter} from "react-router-dom";
 
 Treemap(ReactHighcharts.Highcharts);
 Heatmap(ReactHighcharts.Highcharts);
@@ -37,7 +38,8 @@ class AccountTreemap extends React.Component {
             balanceObjects,
             core_asset,
             marketStats,
-            preferredAsset
+            preferredAsset,
+            history
         } = this.props;
 
         let accountBalances = null;
@@ -97,24 +99,25 @@ class AccountTreemap extends React.Component {
                         preferredAsset.get("precision")
                     );
                     const finalValue = eqValue / precision;
-                    const percent = finalValue / totalValue * 100;
+                    const percent = (finalValue / totalValue) * 100;
 
                     /*
                 * Filter out assets that make up a small percentage of
                 * the total value of the account
                 */
                     if (percent < 0.5) return null;
-
-                    return finalValue >= 1
-                        ? {
-                              name: `${asset.get("symbol")} (${
-                                  totalValue === 0 ? 0 : percent.toFixed(2)
-                              }%)`,
-                              value: finalValue,
-                              color: ReactHighcharts.Highcharts.getOptions()
-                                  .colors[index]
-                          }
-                        : null;
+                    if (finalValue < 1) return null;
+                    const symbol = asset.get("symbol");
+                    return {
+                        symbol: symbol,
+                        name: `${symbol} (${
+                            totalValue === 0 ? 0 : percent.toFixed(2)
+                        }%)`,
+                        value: finalValue,
+                        color: ReactHighcharts.Highcharts.getOptions().colors[
+                            index
+                        ]
+                    };
                 })
                 .filter(n => !!n);
         }
@@ -159,6 +162,17 @@ class AccountTreemap extends React.Component {
                             )} ${preferredAsset.get("symbol")}`;
                         }
                     }
+                },
+                series: {
+                    cursor: "pointer",
+                    point: {
+                        events: {
+                            click: function() {
+                                const link = `/asset/${this.symbol}`;
+                                history.push(link);
+                            }
+                        }
+                    }
                 }
             },
             series: [
@@ -184,11 +198,36 @@ class AccountTreemap extends React.Component {
         };
 
         return (
-            <div className="account-treemap">
-                <ReactHighcharts config={config} />
-            </div>
+            <AccountTreemapView
+                accountBalances={accountBalances}
+                config={config}
+            />
         );
     }
+}
+
+function AccountTreemapView({accountBalances, config}) {
+    return (
+        <div className="account-treemap">
+            <div className="account-treemap--legend">
+                {accountBalances &&
+                    accountBalances.map(({name, symbol, color}, key) => {
+                        return (
+                            <Link key={key} to={`/asset/${symbol}`}>
+                                <div className="legend-item">
+                                    <div
+                                        className="legend-square"
+                                        style={{backgroundColor: color}}
+                                    />
+                                    {name}
+                                </div>
+                            </Link>
+                        );
+                    })}
+            </div>
+            <ReactHighcharts config={config} />
+        </div>
+    );
 }
 
 AccountTreemap = BindToChainState(AccountTreemap);
@@ -220,7 +259,7 @@ class AccountTreemapBalanceWrapper extends React.Component {
 
 AccountTreemapBalanceWrapper = BindToChainState(AccountTreemapBalanceWrapper);
 
-export default class AccountTreemapWrapper extends React.Component {
+class AccountTreemapWrapper extends React.Component {
     render() {
         return (
             <AltContainer
@@ -242,3 +281,5 @@ export default class AccountTreemapWrapper extends React.Component {
         );
     }
 }
+
+export default withRouter(AccountTreemapWrapper);

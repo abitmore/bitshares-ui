@@ -1,5 +1,4 @@
 import React from "react";
-import Trigger from "react-foundation-apps/src/trigger";
 import Translate from "react-translate-component";
 import ChainTypes from "components/Utility/ChainTypes";
 import BindToChainState from "components/Utility/BindToChainState";
@@ -8,14 +7,19 @@ import BalanceComponent from "components/Utility/BalanceComponent";
 import counterpart from "counterpart";
 import AmountSelector from "components/Utility/AmountSelector";
 import AccountActions from "actions/AccountActions";
-import ZfApi from "react-foundation-apps/src/utils/foundation-api";
-import {validateAddress, WithdrawAddresses} from "common/gatewayMethods";
-import {ChainStore} from "bitsharesjs/es";
-import Modal from "react-foundation-apps/src/modal";
+import {
+    validateAddress,
+    WithdrawAddresses,
+    getMappingData
+} from "common/gatewayMethods";
+import {ChainStore} from "bitsharesjs";
 import {checkFeeStatusAsync, checkBalance} from "common/trxHelper";
 import {debounce} from "lodash-es";
 import {Price, Asset} from "common/MarketClasses";
+import {Button, Modal} from "bitshares-ui-style-guide";
 import PropTypes from "prop-types";
+import {connect} from "alt-react";
+import SettingsStore from "stores/SettingsStore";
 
 class WithdrawModalBlocktrades extends React.Component {
     static propTypes = {
@@ -36,6 +40,7 @@ class WithdrawModalBlocktrades extends React.Component {
         super(props);
 
         this.state = {
+            isConfirmationModalVisible: false,
             withdraw_amount: this.props.amount_to_withdraw,
             withdraw_address: WithdrawAddresses.getLast(
                 props.output_wallet_type
@@ -51,7 +56,9 @@ class WithdrawModalBlocktrades extends React.Component {
             withdraw_address_first: true,
             empty_withdraw_value: false,
             from_account: props.account,
-            fee_asset_id: "1.3.0",
+            fee_asset_id:
+                ChainStore.assets_by_symbol.get(props.fee_asset_symbol) ||
+                "1.3.0",
             feeStatus: {}
         };
 
@@ -59,6 +66,9 @@ class WithdrawModalBlocktrades extends React.Component {
 
         this._checkBalance = this._checkBalance.bind(this);
         this._updateFee = debounce(this._updateFee.bind(this), 250);
+
+        this.showConfirmationModal = this.showConfirmationModal.bind(this);
+        this.hideConfirmationModal = this.hideConfirmationModal.bind(this);
     }
 
     componentWillMount() {
@@ -79,7 +89,6 @@ class WithdrawModalBlocktrades extends React.Component {
                 {
                     from_account: np.account,
                     feeStatus: {},
-                    fee_asset_id: "1.3.0",
                     feeAmount: new Asset({amount: 0})
                 },
                 () => {
@@ -88,6 +97,18 @@ class WithdrawModalBlocktrades extends React.Component {
                 }
             );
         }
+    }
+
+    showConfirmationModal() {
+        this.setState({
+            isConfirmationModalVisible: true
+        });
+    }
+
+    hideConfirmationModal() {
+        this.setState({
+            isConfirmationModalVisible: false
+        });
     }
 
     _updateFee(state = this.state) {
@@ -255,12 +276,11 @@ class WithdrawModalBlocktrades extends React.Component {
     onSubmit() {
         if (
             !this.state.withdraw_address_check_in_progress &&
-            (this.state.withdraw_address &&
-                this.state.withdraw_address.length) &&
+            this.state.withdraw_address && this.state.withdraw_address.length &&
             this.state.withdraw_amount !== null
         ) {
             if (!this.state.withdraw_address_is_valid) {
-                ZfApi.publish(this.getWithdrawModalId(), "open");
+                this.showConfirmationModal();
             } else if (parseFloat(this.state.withdraw_amount) > 0) {
                 if (!WithdrawAddresses.has(this.props.output_wallet_type)) {
                     let withdrawals = [];
@@ -340,20 +360,24 @@ class WithdrawModalBlocktrades extends React.Component {
                     sendAmount = balanceAmount;
                 }
 
-                AccountActions.transfer(
-                    this.props.account.get("id"),
-                    this.props.issuer.get("id"),
-                    sendAmount.getAmount(),
-                    asset.get("id"),
-                    this.props.output_coin_type +
-                        ":" +
-                        this.state.withdraw_address +
-                        (this.state.memo
-                            ? ":" + new Buffer(this.state.memo, "utf-8")
-                            : ""),
-                    null,
-                    feeAmount ? feeAmount.asset_id : "1.3.0"
-                );
+                getMappingData(
+                    this.props.input_coin_type,
+                    this.props.output_coin_type,
+                    this.state.withdraw_address
+                ).then(result => {
+                    AccountActions.transfer(
+                        this.props.account.get("id"),
+                        this.props.issuer.get("id"),
+                        sendAmount.getAmount(),
+                        asset.get("id"),
+                        result["memo"] +
+                            (this.state.memo
+                                ? ":" + new Buffer(this.state.memo, "utf-8")
+                                : ""),
+                        null,
+                        feeAmount ? feeAmount.asset_id : "1.3.0"
+                    );
+                });
 
                 this.setState({
                     empty_withdraw_value: false
@@ -367,7 +391,7 @@ class WithdrawModalBlocktrades extends React.Component {
     }
 
     onSubmitConfirmation() {
-        ZfApi.publish(this.getWithdrawModalId(), "close");
+        this.hideConfirmationModal();
 
         if (!WithdrawAddresses.has(this.props.output_wallet_type)) {
             let withdrawals = [];
@@ -400,22 +424,26 @@ class WithdrawModalBlocktrades extends React.Component {
             ""
         );
 
-        const {feeAmount} = this.state;
+        const {feeAmount, fee_asset_id} = this.state;
 
-        AccountActions.transfer(
-            this.props.account.get("id"),
-            this.props.issuer.get("id"),
-            parseInt(amount * precision, 10),
-            asset.get("id"),
-            this.props.output_coin_type +
-                ":" +
-                this.state.withdraw_address +
-                (this.state.memo
-                    ? ":" + new Buffer(this.state.memo, "utf-8")
-                    : ""),
-            null,
-            feeAmount ? feeAmount.asset_id : "1.3.0"
-        );
+        getMappingData(
+            this.props.input_coin_type,
+            this.props.output_coin_type,
+            this.state.withdraw_address
+        ).then(result => {
+            AccountActions.transfer(
+                this.props.account.get("id"),
+                this.props.issuer.get("id"),
+                parseInt(amount * precision, 10),
+                asset.get("id"),
+                result["memo"] +
+                    (this.state.memo
+                        ? ":" + new Buffer(this.state.memo, "utf-8")
+                        : ""),
+                null,
+                feeAmount ? feeAmount.asset_id : fee_asset_id
+            );
+        });
     }
 
     onDropDownList() {
@@ -556,7 +584,6 @@ class WithdrawModalBlocktrades extends React.Component {
         let account_balances = this.props.account.get("balances").toJS();
         let asset_types = Object.keys(account_balances);
 
-        let withdrawModalId = this.getWithdrawModalId();
         let invalid_address_message = null;
         let options = null;
         let confirmation = null;
@@ -586,7 +613,7 @@ class WithdrawModalBlocktrades extends React.Component {
 
         if (
             !this.state.withdraw_address_check_in_progress &&
-            (this.state.withdraw_address && this.state.withdraw_address.length)
+            this.state.withdraw_address && this.state.withdraw_address.length
         ) {
             if (!this.state.withdraw_address_is_valid) {
                 invalid_address_message = (
@@ -598,32 +625,34 @@ class WithdrawModalBlocktrades extends React.Component {
                     </div>
                 );
                 confirmation = (
-                    <Modal id={withdrawModalId} overlay={true}>
-                        <Trigger close={withdrawModalId}>
-                            <a href="#" className="close-button">
-                                &times;
-                            </a>
-                        </Trigger>
-                        <br />
+                    <Modal
+                        closable={false}
+                        footer={[
+                            <Button
+                                key="submit"
+                                type="primary"
+                                onClick={this.onSubmitConfirmation.bind(this)}
+                            >
+                                {counterpart.translate(
+                                    "modal.confirmation.accept"
+                                )}
+                            </Button>,
+                            <Button
+                                key="cancel"
+                                style={{marginLeft: "8px"}}
+                                onClick={this.hideConfirmationModal}
+                            >
+                                {counterpart.translate(
+                                    "modal.confirmation.cancel"
+                                )}
+                            </Button>
+                        ]}
+                        visible={this.state.isConfirmationModalVisible}
+                        onCancel={this.hideConfirmationModal}
+                    >
                         <label>
                             <Translate content="modal.confirmation.title" />
                         </label>
-                        <br />
-                        <div className="content-block">
-                            <input
-                                type="submit"
-                                className="button"
-                                onClick={this.onSubmitConfirmation.bind(this)}
-                                value={counterpart.translate(
-                                    "modal.confirmation.accept"
-                                )}
-                            />
-                            <Trigger close={withdrawModalId}>
-                                <a className="secondary button">
-                                    <Translate content="modal.confirmation.cancel" />
-                                </a>
-                            </Trigger>
-                        </div>
                     </Modal>
                 );
             }
@@ -669,7 +698,8 @@ class WithdrawModalBlocktrades extends React.Component {
                         <Translate
                             component="span"
                             content="transfer.available"
-                        />&nbsp;:&nbsp;
+                        />
+                        &nbsp;:&nbsp;
                         <span
                             className="set-cursor"
                             onClick={this.onAccountBalance.bind(this)}
@@ -695,18 +725,11 @@ class WithdrawModalBlocktrades extends React.Component {
             !this.state.withdraw_amount;
 
         return (
-            <form className="grid-block vertical full-width-content">
+            <form
+                className="grid-block vertical full-width-content"
+                style={{paddingTop: 0}}
+            >
                 <div className="grid-container">
-                    <div className="content-block">
-                        <h3>
-                            <Translate
-                                content="gateway.withdraw_coin"
-                                coin={this.props.output_coin_name}
-                                symbol={this.props.output_coin_symbol}
-                            />
-                        </h3>
-                    </div>
-
                     {/* Withdraw amount */}
                     <div className="content-block">
                         <AmountSelector
@@ -741,7 +764,6 @@ class WithdrawModalBlocktrades extends React.Component {
                         <div className="content-block gate_fee">
                             <AmountSelector
                                 refCallback={this.setNestedRef.bind(this)}
-                                label="transfer.fee"
                                 disabled={true}
                                 amount={this.state.feeAmount.getAmount({
                                     real: true
@@ -829,21 +851,21 @@ class WithdrawModalBlocktrades extends React.Component {
                     {withdraw_memo}
 
                     {/* Withdraw/Cancel buttons */}
-                    <div className="button-group">
-                        <div
+                    <div>
+                        <Button
+                            type="primary"
+                            disabled={disableSubmit}
                             onClick={this.onSubmit.bind(this)}
-                            className={
-                                "button" + (disableSubmit ? " disabled" : "")
-                            }
                         >
-                            <Translate content="modal.withdraw.submit" />
-                        </div>
+                            {counterpart.translate("modal.withdraw.submit")}
+                        </Button>
 
-                        <Trigger close={this.props.modal_id}>
-                            <div className="button">
-                                <Translate content="account.perm.cancel" />
-                            </div>
-                        </Trigger>
+                        <Button
+                            onClick={this.props.hideModal}
+                            style={{marginLeft: "8px"}}
+                        >
+                            {counterpart.translate("account.perm.cancel")}
+                        </Button>
                     </div>
                     {confirmation}
                 </div>
@@ -852,4 +874,15 @@ class WithdrawModalBlocktrades extends React.Component {
     }
 }
 
-export default BindToChainState(WithdrawModalBlocktrades);
+WithdrawModalBlocktrades = BindToChainState(WithdrawModalBlocktrades);
+
+export default connect(WithdrawModalBlocktrades, {
+    listenTo() {
+        return [SettingsStore];
+    },
+    getProps(props) {
+        return {
+            fee_asset_symbol: SettingsStore.getState().settings.get("fee_asset")
+        };
+    }
+});

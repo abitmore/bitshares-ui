@@ -12,15 +12,16 @@ import AccessSettings from "../Settings/AccessSettings";
 import Icon from "../Icon/Icon";
 import "intro.js/introjs.css";
 import guide from "intro.js";
+import ReportModal from "../Modal/ReportModal";
 import PropTypes from "prop-types";
 import {routerTransitioner} from "../../routerTransition";
 import LoadingIndicator from "../LoadingIndicator";
 import counterpart from "counterpart";
-import ConfirmModal from "../Modal/ConfirmModal";
-import ZfApi from "react-foundation-apps/src/utils/foundation-api";
-import {ChainStore} from "bitsharesjs/es";
+import ChoiceModal from "../Modal/ChoiceModal";
+import {ChainStore} from "bitsharesjs";
 import ifvisible from "ifvisible";
 import {getWalletName} from "branding";
+import {Tooltip} from "bitshares-ui-style-guide";
 
 class Footer extends React.Component {
     static propTypes = {
@@ -36,14 +37,46 @@ class Footer extends React.Component {
         super(props);
 
         this.state = {
-            showNodesPopup: false,
-            showConnectingPopup: false
+            hasOutOfSyncModalBeenShownOnce: false,
+            isOutOfSyncModalVisible: false,
+            isReportModalVisible: false,
+            isAccessSettingsPopoverVisible: false,
+            showConnectingPopup: false,
+            showAccessSettingsTooltip: false
         };
 
-        this.confirmOutOfSync = {
-            modal: null,
-            shownOnce: false
-        };
+        this.getNode = this.getNode.bind(this);
+        this._showOutOfSyncModal = this._showOutOfSyncModal.bind(this);
+        this._hideOutOfSyncModal = this._hideOutOfSyncModal.bind(this);
+        this._showReportModal = this._showReportModal.bind(this);
+        this._hideReportModal = this._hideReportModal.bind(this);
+        this._showAccessSettingsTooltip = this._showAccessSettingsTooltip.bind(
+            this
+        );
+    }
+
+    _showOutOfSyncModal() {
+        this.setState({
+            isOutOfSyncModalVisible: true
+        });
+    }
+
+    _hideOutOfSyncModal() {
+        this.setState({
+            isOutOfSyncModalVisible: false
+        });
+    }
+
+    _showReportModal() {
+        this.setState({
+            isReportModalVisible: true
+        });
+    }
+
+    _hideReportModal() {
+        this.setState({
+            isReportModalVisible: false
+        });
     }
 
     componentDidMount() {
@@ -59,12 +92,19 @@ class Footer extends React.Component {
 
     shouldComponentUpdate(nextProps, nextState) {
         return (
+            nextState.isOutOfSyncModalVisible !==
+                this.state.isOutOfSyncModalVisible ||
+            nextState.isReportModalVisible !==
+                this.state.isReportModalVisible ||
             nextProps.dynGlobalObject !== this.props.dynGlobalObject ||
             nextProps.backup_recommended !== this.props.backup_recommended ||
             nextProps.rpc_connection_status !==
                 this.props.rpc_connection_status ||
             nextProps.synced !== this.props.synced ||
-            nextState.showNodesPopup !== this.state.showNodesPopup
+            nextState.isAccessSettingsPopoverVisible !==
+                this.state.isAccessSettingsPopoverVisible ||
+            nextState.showAccessSettingsTooltip !==
+                this.state.showAccessSettingsTooltip
         );
     }
 
@@ -80,7 +120,9 @@ class Footer extends React.Component {
                     function(json) {
                         let oldVersion = String(json.tag_name);
                         let newVersion = String(APP_VERSION);
-                        if (oldVersion !== newVersion) {
+                        let isReleaseCandidate =
+                            APP_VERSION.indexOf("rc") !== -1;
+                        if (!isReleaseCandidate && oldVersion !== newVersion) {
                             this.setState({newVersion});
                         }
                     }.bind(this)
@@ -106,10 +148,7 @@ class Footer extends React.Component {
         var theme = SettingsStore.getState().settings.get("themes");
 
         if (hintData.length == 0) {
-            window.open(
-                "http://docs.bitshares.org/bitshares/user/index.html",
-                "_blank"
-            );
+            this.props.history.push("/help");
         } else {
             guide
                 .introJs()
@@ -130,8 +169,9 @@ class Footer extends React.Component {
 
     getNodeIndexByURL(url) {
         let nodes = this.props.defaults.apiServer;
-
-        let index = nodes.findIndex(node => node.url === url);
+        let index = nodes.findIndex(
+            node => !!node && !!node.url && node.url === url
+        );
         if (index === -1) {
             return null;
         }
@@ -145,15 +185,31 @@ class Footer extends React.Component {
         return currentNode;
     }
 
-    getNode(node) {
+    getNode(node = {url: "", operator: ""}) {
+        if (!node || !node.url) {
+            throw "Node is undefined of has no url";
+        }
+
         const {props} = this;
 
+        const testNet = node.url.indexOf("testnet") !== -1;
+
+        if (!!node.location && node.location.translate)
+            node.location = counterpart.translate(node.location.translate);
+
+        let title = node.operator + " " + !!node.location ? node.location : "";
+        if ("country" in node) {
+            title = node.country + (!!title ? " - " + title : "");
+        }
+
         return {
-            name: node.location || "Unknown location",
+            name: title,
             url: node.url,
-            up: node.url in props.apiLatencies,
-            ping: props.apiLatencies[node.url],
-            hidden: !!node.hidden
+            ping:
+                node.url in props.apiLatencies
+                    ? props.apiLatencies[node.url]
+                    : -1,
+            testNet
         };
     }
 
@@ -199,12 +255,7 @@ class Footer extends React.Component {
      * @private
      */
     _closeOutOfSyncModal() {
-        if (
-            !!this.confirmOutOfSync.modal &&
-            this.confirmOutOfSync.modal.state.show
-        ) {
-            ZfApi.publish(this.confirmOutOfSync.modal.props.modalId, "close");
-        }
+        this._hideOutOfSyncModal();
     }
 
     /**
@@ -229,14 +280,16 @@ class Footer extends React.Component {
 
         if (!connected) {
             console.log("Your connection was lost");
-            this._triggerReconnect();
+            setTimeout(() => {
+                this._triggerReconnect();
+            }, 50);
         } else if (!this.props.synced) {
             // If the blockchain is out of sync the footer will be rerendered one last time and then
             // not receive anymore blocks, meaning no rerender. Thus we need to trigger any and all
             // handling out of sync state within this one call
 
-            let forceReconnectAfterSeconds = 60;
-            let askToReconnectAfterSeconds = 5;
+            let forceReconnectAfterSeconds = this._getForceReconnectAfterSeconds();
+            let askToReconnectAfterSeconds = 10;
 
             // Trigger automatic reconnect after X seconds
             setTimeout(() => {
@@ -256,58 +309,29 @@ class Footer extends React.Component {
                 );
                 setTimeout(() => {
                     // Only ask the user once, and only continue if still out of sync
-                    let out_of_sync_seconds = this.getBlockTimeDelta();
                     if (
                         this.getBlockTimeDelta() > 3 &&
-                        this.confirmOutOfSync.shownOnce == false
+                        this.state.hasOutOfSyncModalBeenShownOnce === false
                     ) {
-                        this.confirmOutOfSync.shownOnce = true;
-                        this.confirmOutOfSync.modal.show(
-                            <div>
-                                <Translate
-                                    content="connection.title_out_of_sync"
-                                    out_of_sync_seconds={parseInt(
-                                        out_of_sync_seconds
-                                    )}
-                                    component="h2"
-                                />
-                                <br />
-                                <br />
-                                <Translate
-                                    content="connection.out_of_sync"
-                                    out_of_sync_seconds={parseInt(
-                                        out_of_sync_seconds
-                                    )}
-                                />
-                                <br />
-                                <br />
-                                <Translate content="connection.want_to_reconnect" />
-                                {routerTransitioner.isAutoSelection() && (
-                                    <Translate
-                                        content="connection.automatic_reconnect"
-                                        reconnect_in_seconds={parseInt(
-                                            forceReconnectAfterSeconds
-                                        )}
-                                    />
-                                )}
-                                <br />
-                                <br />
-                                <br />
-                            </div>,
-                            <Translate content="connection.manual_reconnect" />,
-                            () => {
-                                if (!this.props.synced) {
-                                    this._triggerReconnect(false);
-                                }
-                            }
-                        );
+                        this.setState({
+                            hasOutOfSyncModalBeenShownOnce: true
+                        });
+                        this._showOutOfSyncModal();
                     }
                 }, askToReconnectAfterSeconds * 1000);
             }
         } else {
-            this._closeOutOfSyncModal();
-            this.confirmOutOfSync.shownOnce = false;
+            setTimeout(() => {
+                this._closeOutOfSyncModal();
+                this.setState({
+                    hasOutOfSyncModalBeenShownOnce: false
+                });
+            }, 50);
         }
+    }
+
+    _getForceReconnectAfterSeconds() {
+        return 60;
     }
 
     _triggerReconnect(honorManualSelection = true) {
@@ -330,6 +354,14 @@ class Footer extends React.Component {
         }
     }
 
+    _showAccessSettingsTooltip(showAccessNodeTooltip) {
+        if (!this.state.isAccessSettingsPopoverVisible) {
+            this.setState({showAccessSettingsTooltip: showAccessNodeTooltip});
+        } else {
+            this.setState({showAccessSettingsTooltip: false});
+        }
+    }
+
     render() {
         const autoSelectAPI = "wss://fake.automatic-selection.com";
         const {state, props} = this;
@@ -338,22 +370,25 @@ class Footer extends React.Component {
 
         // Current Node Details
         let nodes = this.props.defaults.apiServer;
-        let getNode = this.getNode.bind(this);
+
         let currentNodeIndex = this.getCurrentNodeIndex.call(this);
-
-        let activeNode = getNode(nodes[currentNodeIndex] || nodes[0]);
-
+        let activeNode = this.getNode(nodes[currentNodeIndex] || nodes[0]);
         if (activeNode.url == autoSelectAPI) {
             let nodeUrl = props.activeNode;
             currentNodeIndex = this.getNodeIndexByURL.call(this, nodeUrl);
-            activeNode = getNode(nodes[currentNodeIndex]);
+            if (!!currentNodeIndex) {
+                activeNode = this.getNode(nodes[currentNodeIndex]);
+            } else {
+                activeNode = this.getNode(nodes[0]);
+            }
         }
-
         let block_height = this.props.dynGlobalObject.get("head_block_number");
-        let version_match = APP_VERSION.match(/2\.0\.(\d\w+)/);
+        let version_match = APP_VERSION.match(/\d\.\d\.(\d{6}.{0,1}\d{0,1})/);
         let version = version_match
             ? `.${version_match[1]}`
             : ` ${APP_VERSION}`;
+        let rc_match = APP_VERSION.match(/-rc[0-9]$/);
+        if (rc_match) version += rc_match[0];
         let updateStyles = {display: "inline-block", verticalAlign: "top"};
         let logoProps = {};
 
@@ -364,20 +399,53 @@ class Footer extends React.Component {
                 {!!routerTransitioner &&
                     routerTransitioner.isTransitionInProgress() && (
                         <LoadingIndicator
-                            loadingText={counterpart.translate(
-                                "app_init.connecting",
-                                {
-                                    server: routerTransitioner.getTransitionTarget()
-                                }
-                            )}
+                            loadingText={routerTransitioner.getTransitionTarget()}
                         />
                     )}
-                <ConfirmModal
-                    modalId="footer_out_of_sync"
-                    ref={thiz => {
-                        this.confirmOutOfSync.modal = thiz;
-                    }}
-                />
+                <ChoiceModal
+                    showModal={this._showOutOfSyncModal}
+                    hideModal={this._hideOutOfSyncModal}
+                    visible={this.state.isOutOfSyncModalVisible}
+                    choices={[
+                        {
+                            translationKey: "connection.manual_reconnect",
+                            callback: () => {
+                                if (!this.props.synced) {
+                                    this._triggerReconnect(false);
+                                }
+                            }
+                        },
+                        {
+                            translationKey:
+                                "connection.manual_ping_and_narrow_down",
+                            callback: () => {
+                                if (!this.props.synced) {
+                                    this.onAccess();
+                                }
+                            }
+                        }
+                    ]}
+                >
+                    <div>
+                        <Translate
+                            content="connection.out_of_sync"
+                            out_of_sync_seconds={parseInt(
+                                this.getBlockTimeDelta()
+                            )}
+                        />
+                        <br />
+                        <br />
+                        <Translate content="connection.want_to_reconnect" />
+                        {routerTransitioner.isAutoSelection() && (
+                            <Translate
+                                content="connection.automatic_reconnect"
+                                reconnect_in_seconds={parseInt(
+                                    this._getForceReconnectAfterSeconds()
+                                )}
+                            />
+                        )}
+                    </div>
+                </ChoiceModal>
                 <div className="show-for-medium grid-block shrink footer">
                     <div className="align-justify grid-block">
                         <div className="grid-block">
@@ -425,7 +493,7 @@ class Footer extends React.Component {
                                     {__GIT_BRANCH__ === "staging" ? (
                                         <a
                                             href={`https://github.com/bitshares/bitshares-ui/commit/${version.trim()}`}
-                                            className="version"
+                                            className="version external-link"
                                             target="_blank"
                                             rel="noopener noreferrer"
                                         >
@@ -451,29 +519,60 @@ class Footer extends React.Component {
                                 )}
                             </div>
                         </div>
+                        {!!routerTransitioner &&
+                            routerTransitioner.isBackgroundPingingInProgress() && (
+                                <div
+                                    onClick={() => {
+                                        this._showNodesPopover();
+                                    }}
+                                    style={{
+                                        cursor: "pointer"
+                                    }}
+                                    className="grid-block shrink txtlabel"
+                                >
+                                    {routerTransitioner.getBackgroundPingingTarget()}
+                                    <div
+                                        style={{
+                                            marginTop: "0.4rem",
+                                            marginLeft: "0.5rem"
+                                        }}
+                                    >
+                                        <LoadingIndicator type="circle" />
+                                    </div>
+                                    &nbsp; &nbsp;
+                                </div>
+                            )}
                         {synced ? null : (
                             <div className="grid-block shrink txtlabel cancel">
-                                <Translate content="footer.nosync" />&nbsp;
-                                &nbsp;
+                                <Translate content="footer.nosync" />
+                                &nbsp; &nbsp;
                             </div>
                         )}
                         {!connected ? (
                             <div className="grid-block shrink txtlabel error">
-                                <Translate content="footer.connection" />&nbsp;
-                                &nbsp;
+                                <Translate content="footer.connection" />
+                                &nbsp; &nbsp;
                             </div>
                         ) : null}
                         {this.props.backup_recommended ? (
                             <span>
                                 <div className="grid-block">
-                                    <a
-                                        className="shrink txtlabel facolor-alert"
-                                        data-tip="Please understand that you are responsible for making your own backup&hellip;"
-                                        data-type="warning"
-                                        onClick={this.onBackup.bind(this)}
+                                    <Tooltip
+                                        overlay={
+                                            <div>
+                                                Please understand that you are
+                                                responsible for making your own
+                                                backup&hellip;
+                                            </div>
+                                        }
                                     >
-                                        <Translate content="footer.backup" />
-                                    </a>
+                                        <a
+                                            className="shrink txtlabel facolor-alert"
+                                            onClick={this.onBackup.bind(this)}
+                                        >
+                                            <Translate content="footer.backup" />
+                                        </a>
+                                    </Tooltip>
                                     &nbsp;&nbsp;
                                 </div>
                             </span>
@@ -495,56 +594,101 @@ class Footer extends React.Component {
                         ) : null}
                         {block_height ? (
                             <div className="grid-block shrink">
-                                <div
-                                    onClick={() => {
-                                        this.setState({
-                                            showNodesPopup: !this.state
-                                                .showNodesPopup
-                                        });
-                                    }}
-                                    style={{
-                                        position: "relative",
-                                        cursor: "pointer"
-                                    }}
+                                <Tooltip
+                                    title={counterpart.translate(
+                                        "tooltip.nodes_popup"
+                                    )}
+                                    mouseEnterDelay={0.5}
+                                    onVisibleChange={
+                                        this._showAccessSettingsTooltip
+                                    }
+                                    visible={
+                                        this.state.showAccessSettingsTooltip
+                                    }
                                 >
-                                    <div className="footer-status">
-                                        {!connected ? (
-                                            <span className="warning">
-                                                <Translate content="footer.disconnected" />
-                                            </span>
-                                        ) : (
-                                            <span className="success">
-                                                {activeNode.name}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="footer-block">
-                                        <span>
-                                            <span className="footer-block-title">
-                                                <Translate content="footer.latency" />
-                                            </span>
-                                            &nbsp;{!connected
-                                                ? "-"
-                                                : !activeNode.ping
-                                                    ? "-"
-                                                    : activeNode.ping +
-                                                      "ms"}&nbsp;/&nbsp;
-                                            <span className="footer-block-title">
-                                                <Translate content="footer.block" />
-                                            </span>
-                                            &nbsp;#{block_height}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div className="grid-block">
                                     <div
-                                        className="introjs-launcher"
                                         onClick={() => {
-                                            this.launchIntroJS();
+                                            this._showNodesPopover();
+                                        }}
+                                        style={{
+                                            position: "relative",
+                                            cursor: "pointer"
                                         }}
                                     >
-                                        <Translate content="global.help" />
+                                        <div className="footer-status">
+                                            {connected &&
+                                                activeNode.testNet && (
+                                                    <span className="testnet">
+                                                        <Translate content="settings.testnet_nodes" />{" "}
+                                                    </span>
+                                                )}
+                                            {!connected ? (
+                                                <span className="warning">
+                                                    <Translate content="footer.disconnected" />
+                                                </span>
+                                            ) : (
+                                                <span className="success">
+                                                    {activeNode.name}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="footer-block">
+                                            <span>
+                                                <span className="footer-block-title">
+                                                    <Translate content="footer.latency" />
+                                                </span>
+                                                &nbsp;
+                                                {!connected
+                                                    ? "-"
+                                                    : !activeNode.ping
+                                                        ? "-"
+                                                        : parseInt(
+                                                              activeNode.ping
+                                                          ) + "ms"}
+                                                &nbsp;/&nbsp;
+                                                <span className="footer-block-title">
+                                                    <Translate content="footer.block" />
+                                                </span>
+                                                &nbsp;#
+                                                {block_height}
+                                            </span>
+                                        </div>
                                     </div>
+                                </Tooltip>
+
+                                <div className="grid-block">
+                                    <Tooltip
+                                        title={counterpart.translate(
+                                            "tooltip.debug_report"
+                                        )}
+                                        placement="topRight"
+                                        mouseEnterDelay={0.5}
+                                    >
+                                        <div
+                                            className="introjs-launcher"
+                                            onClick={e => {
+                                                this._showReportModal(e);
+                                            }}
+                                        >
+                                            <Translate content="modal.report.button" />
+                                        </div>
+                                    </Tooltip>
+                                    <Tooltip
+                                        title={counterpart.translate(
+                                            "tooltip.self_help"
+                                        )}
+                                        placement="topRight"
+                                        mouseEnterDelay={0.5}
+                                    >
+                                        <div
+                                            className="introjs-launcher"
+                                            onClick={() => {
+                                                this.launchIntroJS();
+                                            }}
+                                        >
+                                            <Translate content="global.help" />
+                                        </div>
+                                    </Tooltip>
                                 </div>
                             </div>
                         ) : (
@@ -556,10 +700,14 @@ class Footer extends React.Component {
                 </div>
                 <div
                     onMouseLeave={() => {
-                        this.setState({showNodesPopup: false});
+                        this.setState({isAccessSettingsPopoverVisible: false});
                     }}
                     className="node-access-popup"
-                    style={{display: this.state.showNodesPopup ? "" : "none"}}
+                    style={{
+                        display: this.state.isAccessSettingsPopoverVisible
+                            ? ""
+                            : "none"
+                    }}
                 >
                     <AccessSettings
                         nodes={this.props.defaults.apiServer}
@@ -579,8 +727,35 @@ class Footer extends React.Component {
                 >
                     <Translate content="global.help" />
                 </div>
+                <ReportModal
+                    showModal={this._showReportModal}
+                    hideModal={this._hideReportModal}
+                    visible={this.state.isReportModalVisible}
+                    refCallback={e => {
+                        if (e) this.reportModal = e;
+                    }}
+                />
             </div>
         );
+    }
+
+    _showNodesPopover() {
+        if (
+            this.state.showAccessSettingsTooltip &&
+            !this.state.isAccessSettingsPopoverVisible
+        ) {
+            this.setState({
+                isAccessSettingsPopoverVisible: !this.state
+                    .isAccessSettingsPopoverVisible,
+                showAccessSettingsTooltip: false
+            });
+        } else {
+            this.setState({
+                isAccessSettingsPopoverVisible: !this.state
+                    .isAccessSettingsPopoverVisible,
+                showAccessSettingsTooltip: false
+            });
+        }
     }
 
     onBackup() {
@@ -593,7 +768,8 @@ class Footer extends React.Component {
 
     onPopup() {
         this.setState({
-            showNodesPopup: !this.state.showNodesPopup
+            isAccessSettingsPopoverVisible: !this.state
+                .isAccessSettingsPopoverVisible
         });
     }
 
