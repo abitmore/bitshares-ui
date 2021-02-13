@@ -2,11 +2,13 @@
 name: Continuous Delivery and Deployment
 
 on:
-    push:
-        branches: [develop]
+  pull_request_target:
+    types:
+      - labeled
 
 jobs:
     build:
+        if: contains(github.event.pull_request.labels.*.name, 'pr-deploy')
         runs-on: ubuntu-latest
 
         strategy:
@@ -25,11 +27,11 @@ jobs:
               uses: finnp/create-file-action@master
               env:
                   FILE_NAME: build/dist/CNAME
-                  FILE_DATA: develop.bitshares.org
+                  FILE_DATA: pr.bts.mobi
             - name: Deploy
               uses: s0/git-publish-subdir-action@master
               env:
-                  REPO: git@github.com:bitshares/develop.bitshares.org.git
+                  REPO: git@github.com:abitmore/pr.bts.mobi.git
                   BRANCH: master
                   FOLDER: build/dist
                   SSH_PRIVATE_KEY: ${{ secrets.AUTOMATION_UI_DEPLOYMENT_KEY }}
