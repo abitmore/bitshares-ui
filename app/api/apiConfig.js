@@ -56,7 +56,7 @@ export const citadelAPIs = {
 };
 
 export const gdex2APIs = {
-    BASE: "https://api.gdex.io/adjust",
+    BASE: "https://api.52bts.net/adjust",
     COINS_LIST: "/coins",
     ACTIVE_WALLETS: "/active-wallets",
     TRADING_PAIRS: "/trading-pairs"
@@ -64,7 +64,7 @@ export const gdex2APIs = {
 
 // Legacy Deposit/Withdraw
 export const gdexAPIs = {
-    BASE: "https://api.gdex.io",
+    BASE: "https://api.52bts.net",
     ASSET_LIST: "/gateway/asset/assetList",
     ASSET_DETAIL: "/gateway/asset/assetDetail",
     GET_DEPOSIT_ADDRESS: "/gateway/address/getAddress",
@@ -330,6 +330,14 @@ export const settingsAPIs = {
             location: "Zhejiang",
             operator: "Witness: ioex",
             contact: "wechat:xiaoyuan_409"
+        },
+        {
+            url: "wss://hongkong.bitshares.im/ws",
+            region: "East Asia",
+            country: "China",
+            location: "Hong Kong",
+            operator: "Witness: clone",
+            contact: "telegram: yexiao"
         },
         {
             url: "wss://singapore.bitshares.im/ws",
