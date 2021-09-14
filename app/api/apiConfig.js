@@ -219,14 +219,6 @@ export const settingsAPIs = {
         //    contact: "telegram:vianull;wechat:strugglingl"
         //},
         {
-            url: "wss://bts-seoul.clockwork.gr",
-            region: "Southeastern Asia",
-            country: "Korea",
-            location: "Seoul",
-            operator: "Witness: clockwork",
-            contact: "telegram:clockworkgr"
-        },
-        {
             url: "wss://api.61bts.com",
             region: "Eastern Asia",
             country: "China",
@@ -316,12 +308,12 @@ export const settingsAPIs = {
             contact: "telegram: xbtsio"
         },
         {
-            url: "wss://api.gbacenter.org/ws",
+            url: "wss://api.pindd.club",
             region: "Northern America",
             country: "U.S.A.",
-            location: "Fremont, CA",
+            location: "Seattle, CA",
             operator: "Witness: gbac-ety001",
-            contact: "email:work@domyself.me"
+            contact: "email:work@akawa.ink"
         },
         {
             url: "wss://api.cnvote.vip:888/",
@@ -354,14 +346,6 @@ export const settingsAPIs = {
             location: "New York",
             operator: "Witness: clone",
             contact: "telegram: yexiao"
-        },
-        {
-            url: "wss://api.iamredbar.com/ws",
-            region: "Northern America",
-            country: "U.S.A.",
-            location: "Minnesota",
-            operator: "Witness: iamredbar",
-            contact: "telegram: iamredbar"
         },
         // Testnet
         {
