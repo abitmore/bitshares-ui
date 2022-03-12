@@ -186,9 +186,9 @@ export default class TranslateWithLinks extends React.Component {
                                         content={"proposal.changes_to_active"}
                                     />
                                     <div style={{marginLeft: "0.5rem"}}>
-                                        {active.keys.plus.length > 0 ||
-                                            (active.accounts.plus.length >
-                                                0 && (
+                                        {(active.keys.plus.length > 0 ||
+                                            active.accounts.plus.length >
+                                                0) && (
                                                 <div>
                                                     {"- " +
                                                         counterpart.translate(
@@ -211,10 +211,10 @@ export default class TranslateWithLinks extends React.Component {
                                                         (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
-                                            ))}
-                                        {active.keys.minus.length > 0 ||
-                                            (active.accounts.minus.length >
-                                                0 && (
+                                            )}
+                                        {(active.keys.minus.length > 0 ||
+                                            active.accounts.minus.length >
+                                                0) && (
                                                 <div>
                                                     {"- " +
                                                         counterpart.translate(
@@ -237,7 +237,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
-                                            ))}
+                                            )}
                                         {active.weight_threshold && (
                                             <div>
                                                 {"- " +
@@ -259,8 +259,8 @@ export default class TranslateWithLinks extends React.Component {
                                         content={"proposal.changes_to_owner"}
                                     />
                                     <div style={{marginLeft: "0.5rem"}}>
-                                        {owner.keys.plus.length > 0 ||
-                                            (owner.accounts.plus.length > 0 && (
+                                        {(owner.keys.plus.length > 0 ||
+                                            owner.accounts.plus.length > 0) && (
                                                 <div>
                                                     {"- " +
                                                         counterpart.translate(
@@ -281,10 +281,10 @@ export default class TranslateWithLinks extends React.Component {
                                                         (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
-                                            ))}
-                                        {owner.keys.minus.length > 0 ||
-                                            (owner.accounts.minus.length >
-                                                0 && (
+                                            )}
+                                        {(owner.keys.minus.length > 0 ||
+                                            owner.accounts.minus.length >
+                                                0) && (
                                                 <div>
                                                     {"- " +
                                                         counterpart.translate(
@@ -307,7 +307,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
-                                            ))}
+                                            )}
                                         {owner.weight_threshold && (
                                             <div>
                                                 {"- " +
