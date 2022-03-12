@@ -209,7 +209,7 @@ export default class TranslateWithLinks extends React.Component {
                                                             </span>
                                                         )
                                                     ).reduce(
-                                                        (prev, curr) => [ prev, ', ', curr ]
+                                                        (prev, curr) => [ prev, ", ", curr ]
                                                     ) : ""}
                                                 </div>
                                             )}
@@ -236,7 +236,7 @@ export default class TranslateWithLinks extends React.Component {
                                                             </span>
                                                         )
                                                     ).reduce(
-                                                        (prev, curr) => [ prev, ', ', curr ]
+                                                        (prev, curr) => [ prev, ", ", curr ]
                                                     ) : ""}
                                                 </div>
                                             )}
@@ -281,7 +281,7 @@ export default class TranslateWithLinks extends React.Component {
                                                             </span>
                                                         )
                                                     ).reduce(
-                                                        (prev, curr) => [ prev, ', ', curr ]
+                                                        (prev, curr) => [ prev, ", ", curr ]
                                                     ) : ""}
                                                 </div>
                                             )}
@@ -308,7 +308,7 @@ export default class TranslateWithLinks extends React.Component {
                                                             </span>
                                                         )
                                                     ).reduce(
-                                                        (prev, curr) => [ prev, ', ', curr ]
+                                                        (prev, curr) => [ prev, ", ", curr ]
                                                     ) : ""}
                                                 </div>
                                             )}
