@@ -206,8 +206,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
-                                                    ).join(
-                                                        ", "
+                                                    ).reduce(
+                                                        (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
                                             ))}
@@ -231,8 +231,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
-                                                    ).join(
-                                                        ", "
+                                                    ).reduce(
+                                                        (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
                                             ))}
@@ -274,8 +274,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
-                                                    ).join(
-                                                        ", "
+                                                    ).reduce(
+                                                        (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
                                             ))}
@@ -299,8 +299,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
-                                                    ).join(
-                                                        ", "
+                                                    ).reduce(
+                                                        (prev, curr) => [ prev, ', ', curr ]
                                                     )}
                                                 </div>
                                             ))}
