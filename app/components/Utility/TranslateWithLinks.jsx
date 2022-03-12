@@ -199,7 +199,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         ", "
                                                     )}
                                                     {active.keys.plus.length > 0 && active.accounts.plus.length > 0 && ", "}
-                                                    {active.accounts.plus.length > 0 &&
+                                                    {active.accounts.plus.length > 0 ?
                                                     active.accounts.plus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
@@ -210,7 +210,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         )
                                                     ).reduce(
                                                         (prev, curr) => [ prev, ', ', curr ]
-                                                    )}
+                                                    ) : ""}
                                                 </div>
                                             )}
                                         {(active.keys.minus.length > 0 ||
@@ -226,7 +226,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         ", "
                                                     )}
                                                     {active.keys.minus.length > 0 && active.accounts.minus.length > 0 && ", "}
-                                                    {active.accounts.minus.length > 0 &&
+                                                    {active.accounts.minus.length > 0 ?
                                                     active.accounts.minus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
@@ -237,7 +237,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         )
                                                     ).reduce(
                                                         (prev, curr) => [ prev, ', ', curr ]
-                                                    )}
+                                                    ) : ""}
                                                 </div>
                                             )}
                                         {active.weight_threshold && (
@@ -271,7 +271,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         " "}
                                                     {owner.keys.plus.join(", ")}
                                                     {owner.keys.plus.length > 0 && owner.accounts.plus.length > 0 && ", "}
-                                                    {owner.accounts.plus.length > 0 &&
+                                                    {owner.accounts.plus.length > 0 ?
                                                     owner.accounts.plus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
@@ -282,7 +282,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         )
                                                     ).reduce(
                                                         (prev, curr) => [ prev, ', ', curr ]
-                                                    )}
+                                                    ) : ""}
                                                 </div>
                                             )}
                                         {(owner.keys.minus.length > 0 ||
@@ -298,7 +298,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         ", "
                                                     )}
                                                     {owner.keys.minus.length > 0 && owner.accounts.minus.length > 0 && ", "}
-                                                    {owner.accounts.minus.length > 0 &&
+                                                    {owner.accounts.minus.length > 0 ?
                                                     owner.accounts.minus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
@@ -309,7 +309,7 @@ export default class TranslateWithLinks extends React.Component {
                                                         )
                                                     ).reduce(
                                                         (prev, curr) => [ prev, ', ', curr ]
-                                                    )}
+                                                    ) : ""}
                                                 </div>
                                             )}
                                         {owner.weight_threshold && (
