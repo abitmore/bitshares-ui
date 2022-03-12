@@ -197,7 +197,8 @@ export default class TranslateWithLinks extends React.Component {
                                                         " "}
                                                     {active.keys.plus.join(
                                                         ", "
-                                                    )}{" "}
+                                                    )}
+                                                    {active.keys.plus.length > 0 && active.accounts.plus.length > 0 && ", "}
                                                     {active.accounts.plus.length > 0 &&
                                                     active.accounts.plus.map(
                                                         _tmp => (
@@ -223,7 +224,8 @@ export default class TranslateWithLinks extends React.Component {
                                                         " "}
                                                     {active.keys.minus.join(
                                                         ", "
-                                                    )}{" "}
+                                                    )}
+                                                    {active.keys.minus.length > 0 && active.accounts.minus.length > 0 && ", "}
                                                     {active.accounts.minus.length > 0 &&
                                                     active.accounts.minus.map(
                                                         _tmp => (
@@ -267,7 +269,8 @@ export default class TranslateWithLinks extends React.Component {
                                                             "proposal.add"
                                                         ) +
                                                         " "}
-                                                    {owner.keys.plus.join(", ")}{" "}
+                                                    {owner.keys.plus.join(", ")}
+                                                    {owner.keys.plus.length > 0 && owner.accounts.plus.length > 0 && ", "}
                                                     {owner.accounts.plus.length > 0 &&
                                                     owner.accounts.plus.map(
                                                         _tmp => (
@@ -293,8 +296,9 @@ export default class TranslateWithLinks extends React.Component {
                                                         " "}
                                                     {owner.keys.minus.join(
                                                         ", "
-                                                    )}{" "}
-                                                    {owner.accounts.plus.length > 0 &&
+                                                    )}
+                                                    {owner.keys.minus.length > 0 && owner.accounts.minus.length > 0 && ", "}
+                                                    {owner.accounts.minus.length > 0 &&
                                                     owner.accounts.minus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
