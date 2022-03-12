@@ -206,6 +206,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
+                                                    ).join(
+                                                        ", "
                                                     )}
                                                 </div>
                                             ))}
@@ -229,6 +231,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
+                                                    ).join(
+                                                        ", "
                                                     )}
                                                 </div>
                                             ))}
@@ -270,6 +274,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
+                                                    ).join(
+                                                        ", "
                                                     )}
                                                 </div>
                                             ))}
@@ -293,6 +299,8 @@ export default class TranslateWithLinks extends React.Component {
                                                                 )}
                                                             </span>
                                                         )
+                                                    ).join(
+                                                        ", "
                                                     )}
                                                 </div>
                                             ))}
