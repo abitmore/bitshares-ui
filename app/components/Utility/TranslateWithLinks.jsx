@@ -198,7 +198,8 @@ export default class TranslateWithLinks extends React.Component {
                                                     {active.keys.plus.join(
                                                         ", "
                                                     )}{" "}
-                                                    {active.accounts.plus.map(
+                                                    {active.accounts.plus.length > 0 &&
+                                                    active.accounts.plus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
                                                                 {this.linkToAccount(
@@ -223,7 +224,8 @@ export default class TranslateWithLinks extends React.Component {
                                                     {active.keys.minus.join(
                                                         ", "
                                                     )}{" "}
-                                                    {active.accounts.minus.map(
+                                                    {active.accounts.minus.length > 0 &&
+                                                    active.accounts.minus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
                                                                 {this.linkToAccount(
@@ -266,7 +268,8 @@ export default class TranslateWithLinks extends React.Component {
                                                         ) +
                                                         " "}
                                                     {owner.keys.plus.join(", ")}{" "}
-                                                    {owner.accounts.plus.map(
+                                                    {owner.accounts.plus.length > 0 &&
+                                                    owner.accounts.plus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
                                                                 {this.linkToAccount(
@@ -291,7 +294,8 @@ export default class TranslateWithLinks extends React.Component {
                                                     {owner.keys.minus.join(
                                                         ", "
                                                     )}{" "}
-                                                    {owner.accounts.minus.map(
+                                                    {owner.accounts.plus.length > 0 &&
+                                                    owner.accounts.minus.map(
                                                         _tmp => (
                                                             <span key={_tmp}>
                                                                 {this.linkToAccount(
