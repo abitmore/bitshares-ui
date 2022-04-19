@@ -54,11 +54,11 @@ class AppInit extends React.Component {
             apiError: false,
             syncError: null,
             status: "",
-            extendeLogText: [], // used to cache logs when not mounted
+            extendeLogText: [], // used to store logs when mounted
             nodeFilterHasChanged: false,
             showNodeFilter: false
         };
-        this.mounted = true;
+        this.mounted = false;
         this.persistentLogEnabled = false;
     }
 
@@ -156,9 +156,6 @@ class AppInit extends React.Component {
     }
 
     UNSAFE_componentWillMount() {
-        if (!__DEV__) {
-            this._enablePersistingLog();
-        }
         setTimeout(() => {
             this.setState({
                 showNodeFilter: true
@@ -188,6 +185,9 @@ class AppInit extends React.Component {
 
     componentDidMount() {
         this.mounted = true;
+        if (!__DEV__) {
+            this._enablePersistingLog();
+        }
         //Detect OS for platform specific fixes
         if (navigator.platform.indexOf("Win") > -1) {
             var main = document.getElementById("content");
