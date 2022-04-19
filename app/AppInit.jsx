@@ -89,7 +89,9 @@ class AppInit extends React.Component {
         if (text.indexOf(logState[logState.length - 1])) {
             logState.push(text);
             if (this.mounted) {
-                this.setState({extendeLogText: logState});
+                setTimeout(() => {
+                    this.setState({extendeLogText: logState});
+                }, 50);
             } else {
                 LogsActions.setLog(logState);
             }
