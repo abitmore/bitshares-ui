@@ -18,7 +18,4 @@ jobs:
             - run: corepack enable
             - run: yarn install --network-concurrency 1 --frozen-lockfile
             - run: yarn run build-hash
-            - uses: actions/upload-artifact@v3
-              with:
-                  name: build-hash-binaries
-                  path: build/hash-history
+
