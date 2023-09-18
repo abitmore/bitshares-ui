@@ -16,6 +16,6 @@ jobs:
               with:
                   node-version: 16.13.1
             - run: corepack enable
-            - run: yarn install --network-concurrency 1 --frozen-lockfile
+            - run: yarn install --network-concurrency 1 --frozen-lockfile --verbose
             - run: yarn run build-hash
 
