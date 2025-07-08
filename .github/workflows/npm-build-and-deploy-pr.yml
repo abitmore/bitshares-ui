@@ -9,7 +9,7 @@ on:
 jobs:
     build:
         if: contains(github.event.pull_request.labels.*.name, 'pr-deploy')
-        runs-on: ubuntu-22
+        runs-on: ubuntu-22.04
 
         steps:
             - uses: actions/checkout@v2
