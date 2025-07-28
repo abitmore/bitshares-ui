@@ -18,7 +18,6 @@ import PoolExchangeModal from "../Modal/PoolExchangeModal";
 import PoolStakeModal from "../Modal/PoolStakeModal";
 import AccountStore from "../../stores/AccountStore";
 
-
 class LiquidityPools extends React.Component {
     static propTypes = {
         defaultAsset: ChainTypes.ChainAsset.isRequired
@@ -200,17 +199,15 @@ class LiquidityPools extends React.Component {
     }
 
     render() {
-
         let hasLoggedIn =
-                AccountStore.getState().myActiveAccounts.length > 0 ||
-                !!AccountStore.getState().currentAccount;
-        console.log( );
+            AccountStore.getState().myActiveAccounts.length > 0 ||
+            !!AccountStore.getState().currentAccount;
+        console.log();
         const tile = {
             disabled: hasLoggedIn
                 ? false
                 : "Please login to use this functionality"
         };
-
 
         const columns = [
             {
@@ -320,27 +317,30 @@ class LiquidityPools extends React.Component {
                 title: counterpart.translate(
                     "poolmart.liquidity_pools.exchange"
                 ),
-                render: item => (
-                    hasLoggedIn ?
-                    <a onClick={() => this._showExchangeModal(item)}>
+                render: item =>
+                    hasLoggedIn ? (
+                        <a onClick={() => this._showExchangeModal(item)}>
+                            <Icon name="poolmart" />
+                        </a>
+                    ) : (
                         <Icon name="poolmart" />
-                    </a> : <Icon name="poolmart" />
-                )
+                    )
             },
             {
                 key: "stake_unstake",
                 title: counterpart.translate(
                     "poolmart.liquidity_pools.stake_unstake"
                 ),
-                render: item => (
-                    hasLoggedIn ?
-                    <a onClick={() => this._showStakeModal(item)}>
+                render: item =>
+                    hasLoggedIn ? (
+                        <a onClick={() => this._showStakeModal(item)}>
+                            <Icon name="deposit" />
+                        </a>
+                    ) : (
                         <Icon name="deposit" />
-                    </a> : <Icon name="deposit" />
-                )
+                    )
             }
         ];
-
 
         const dataSource = [];
         this.props.liquidityPools.forEach(pool => {

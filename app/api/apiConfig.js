@@ -304,7 +304,7 @@ export const settingsAPIs = {
             location: "Chicago",
             operator: "bitshares.info",
             contact: "telegram:brekyrself"
-        },
+        }
     ],
     ES_WRAPPER_LIST: [
         {

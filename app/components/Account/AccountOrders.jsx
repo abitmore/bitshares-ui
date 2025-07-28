@@ -786,16 +786,19 @@ class AccountOrders extends React.Component {
     }
 }
 
-AccountOrders = connect(AccountOrders, {
-    listenTo() {
-        return [SettingsStore];
-    },
-    getProps() {
-        return {
-            marketDirections: SettingsStore.getState().marketDirections,
-            viewSettings: SettingsStore.getState().viewSettings
-        };
+AccountOrders = connect(
+    AccountOrders,
+    {
+        listenTo() {
+            return [SettingsStore];
+        },
+        getProps() {
+            return {
+                marketDirections: SettingsStore.getState().marketDirections,
+                viewSettings: SettingsStore.getState().viewSettings
+            };
+        }
     }
-});
+);
 
 export default AccountOrders;

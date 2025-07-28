@@ -615,7 +615,7 @@ class WithdrawModalNew extends React.Component {
     onMemoChanged(e) {
         this.setState({memo: e.target.value});
     }
-    
+
     onTagChanged(e) {
         this.setState({tag: e.target.value});
     }
@@ -1230,7 +1230,7 @@ class WithdrawModalNew extends React.Component {
                                 }
                             </div>
                         ) : null}
-                        
+
                         {/*TAG*/}
                         {isBTS ||
                         (backingAsset && backingAsset.memoType === "tagid") ? (
@@ -1244,7 +1244,7 @@ class WithdrawModalNew extends React.Component {
                                 />
                             </div>
                         ) : null}
-                        
+
                         {/*MEMO*/}
                         {isBTS ||
                         (backingAsset && backingAsset.supportsMemos) ? (
@@ -1277,7 +1277,7 @@ class WithdrawModalNew extends React.Component {
                                                     this.state.selectedAsset.toLowerCase() +
                                                     ":" +
                                                     this.state.address +
-                                                     (this.state.tag
+                                                    (this.state.tag
                                                         ? ":" + this.state.tag
                                                         : "") +
                                                     (this.state.memo

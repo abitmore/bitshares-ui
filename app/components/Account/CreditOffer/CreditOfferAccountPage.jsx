@@ -32,6 +32,9 @@ class CreditOfferAccountPage extends React.Component {
     }
 }
 
-CreditOfferAccountPage = connect(CreditOfferAccountPage, {});
+CreditOfferAccountPage = connect(
+    CreditOfferAccountPage,
+    {}
+);
 
 export default CreditOfferAccountPage;

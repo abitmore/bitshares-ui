@@ -623,14 +623,17 @@ class GdexGateway extends React.Component {
     }
 }
 
-export default connect(GdexGateway, {
-    listenTo() {
-        return [SettingsStore];
-    },
-    getProps() {
-        return {
-            viewSettings: SettingsStore.getState().viewSettings,
-            settings: SettingsStore.getState().settings
-        };
+export default connect(
+    GdexGateway,
+    {
+        listenTo() {
+            return [SettingsStore];
+        },
+        getProps() {
+            return {
+                viewSettings: SettingsStore.getState().viewSettings,
+                settings: SettingsStore.getState().settings
+            };
+        }
     }
-});
+);

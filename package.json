@@ -1,6 +1,6 @@
 {
     "name": "BitShares2-light",
-    "version": "5.0.230907-rc1",
+    "version": "5.0.250727-rc1",
     "description": "Reference UI to showcase all features of the BitShares blockchain.",
     "homepage": "https://github.com/bitshares/bitshares-ui",
     "author": "BitShares UI Devs <ui-dev@bitshares.org>",
@@ -47,7 +47,7 @@
         "prepackage": "yarn run build-electron",
         "prepackage-no-ugly": "yarn run build-electron-nougly",
         "package": "electron-builder -p never",
-        "package-charting-library": "node ./charting_library/package-charting-library.js",
+        "package-charting-library": "node ./charting_library/package-charting-library.cjs",
         "package-no-ugly": "electron-builder -p never",
         "package-deb": "yarn run prepackage && electron-builder  -p never --linux deb",
         "package-snap": "yarn run prepackage && electron-builder  -p never --linux snap",
@@ -236,7 +236,7 @@
         "cross-env": "^5.0.5",
         "css-loader": "^6.5.1",
         "electron": "16.2.6",
-        "electron-builder": "22.14.5",
+        "electron-builder": "23.6.0",
         "es6-promise": "^3.0.2",
         "eslint": "^8.4.1",
         "eslint-plugin-json": "^3.1.0",
@@ -280,5 +280,6 @@
         "webpack-dev-server": "^4.6.0",
         "webpack-hot-middleware": "^2.25.1",
         "worker-loader": "^3.0.8"
-    }
+    },
+    "packageManager": "yarn@1.22.22"
 }

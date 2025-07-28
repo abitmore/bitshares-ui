@@ -326,7 +326,9 @@ class TransactionConfirm extends React.Component {
                                 message={counterpart.translate(
                                     "transaction.transaction_confirmed"
                                 )}
-                                description={`#${this.props.trx_id}@${this.props.trx_block_num}`}
+                                description={`#${this.props.trx_id}@${
+                                    this.props.trx_block_num
+                                }`}
                             />
                         ) : null}
 
@@ -438,13 +440,16 @@ class TransactionConfirm extends React.Component {
     }
 }
 
-TransactionConfirm = connect(TransactionConfirm, {
-    listenTo() {
-        return [TransactionConfirmStore];
-    },
-    getProps() {
-        return TransactionConfirmStore.getState();
+TransactionConfirm = connect(
+    TransactionConfirm,
+    {
+        listenTo() {
+            return [TransactionConfirmStore];
+        },
+        getProps() {
+            return TransactionConfirmStore.getState();
+        }
     }
-});
+);
 
 export default TransactionConfirm;

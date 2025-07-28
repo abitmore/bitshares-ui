@@ -317,7 +317,7 @@ export function getFeaturedMarkets(quotes = []) {
         ["USD", "GDEX.EOS"],
         ["USD", "GDEX.BTO"],
         ["USD", "HONEST.BTC"],
-        ["USD", "HONEST.USD"],        
+        ["USD", "HONEST.USD"],
         ["USD", "HONEST.BTCSHORT"],
         ["USD", "HONEST.USDSHORT"],
         ["USD", "HERTZ"],
@@ -337,7 +337,7 @@ export function getFeaturedMarkets(quotes = []) {
         ["CNY", "GDEX.USDT"],
         ["CNY", "GDEX.GXC"],
         ["CNY", "HONEST.BTC"],
-        ["CNY", "HONEST.USD"],        
+        ["CNY", "HONEST.USD"],
         ["CNY", "HONEST.BTCSHORT"],
         ["CNY", "HONEST.USDSHORT"],
         ["CNY", "HONEST.CNY"],
@@ -421,7 +421,7 @@ export function getFeaturedMarkets(quotes = []) {
         ["BTS", "HERTZ"],
         ["BTS", "URTHR"],
         ["BTS", "SKULD"],
-        ["BTS", "VERTHANDI"],
+        ["BTS", "VERTHANDI"]
     ].filter(a => {
         if (!quotes.length) return true;
         return quotes.indexOf(a[0]) !== -1;
@@ -499,6 +499,5 @@ export function getConfigurationAsset() {
 }
 
 export function getHiveNewsTag() {
-    return 'bitshares';
+    return "bitshares";
 }
-
