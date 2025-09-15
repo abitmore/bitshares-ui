@@ -145,14 +145,6 @@ export const settingsAPIs = {
             contact: "email:admin@iobanker.com"
         },
         {
-            url: "wss://mainnet-node.btspp.io",
-            region: "Eastern Asia",
-            country: "China",
-            location: "Hangzhou",
-            operator: "Witness: btspp-witness",
-            contact: "telegram:btsplusplus"
-        },
-        {
             url: "wss://api.bts.mobi/ws",
             region: "Northern America",
             country: "U.S.A.",
@@ -167,22 +159,6 @@ export const settingsAPIs = {
             location: "Helsinki",
             operator: "Witness: roelandp",
             contact: "telegram:roelandp"
-        },
-        {
-            url: "wss://api.61bts.com",
-            region: "Eastern Asia",
-            country: "China",
-            location: "Shandong",
-            operator: "Witness: liuye",
-            contact: "email:work@akawa.ink"
-        },
-        {
-            url: "wss://api-us.61bts.com",
-            region: "Northern America",
-            country: "USA",
-            location: "St. Louis",
-            operator: "Witness: liuye",
-            contact: "email:work@akawa.ink"
         },
         {
             url: "wss://api.dex.trading/",
@@ -225,14 +201,6 @@ export const settingsAPIs = {
             contact: "telegram: xbtsio"
         },
         {
-            url: "wss://bts.mypi.win",
-            region: "Northern America",
-            country: "U.S.A.",
-            location: "Seattle, CA",
-            operator: "Witness: gbac-ety001",
-            contact: "email:work@akawa.ink"
-        },
-        {
             url: "wss://api.btslebin.com/ws",
             region: "Eastern Asia",
             country: "China",
@@ -272,30 +240,6 @@ export const settingsAPIs = {
             location: "Nuremberg",
             operator: "Witness: xbtsio-wallet",
             contact: "telegram: xbtsio"
-        },
-        {
-            url: "wss://api-testnet.61bts.com/ws",
-            region: "Eastern Asia",
-            country: "China",
-            location: "Shandong",
-            operator: "Witness: liuye",
-            contact: "email:work@akawa.ink"
-        },
-        {
-            url: "wss://api-us-testnet.61bts.com/ws",
-            region: "Northern America",
-            country: "USA",
-            location: "St. Louis",
-            operator: "Witness: liuye",
-            contact: "email:work@akawa.ink"
-        },
-        {
-            url: "wss://btstestnet.cybertron.ninja/ws",
-            region: "Northern America",
-            country: "USA",
-            location: "Utah",
-            operator: "Witness: cn-faucet-test",
-            contact: "email:codinheim@protonmail.com"
         },
         {
             url: "wss://bitsharestestnet.loclx.io",
