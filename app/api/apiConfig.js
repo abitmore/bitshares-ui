@@ -168,14 +168,14 @@ export const settingsAPIs = {
             operator: "Witness: zapata42-witness",
             contact: "telegram:Zapata_42"
         },
-        {
-            url: "wss://eu.nodes.bitshares.ws",
-            region: "Western Europe",
-            country: "Germany",
-            location: "Nuremberg",
-            operator: "Witness: blocksights",
-            contact: "telegram:blocksights"
-        },
+        //{
+        //    url: "wss://eu.nodes.bitshares.ws",
+        //    region: "Western Europe",
+        //    country: "Germany",
+        //    location: "Nuremberg",
+        //    operator: "Witness: blocksights",
+        //    contact: "telegram:blocksights"
+        //},
         {
             url: "wss://public.xbts.io/ws",
             region: "Western Europe",
@@ -217,14 +217,14 @@ export const settingsAPIs = {
             contact: "telegram:brekyrself"
         },
         // Testnet
-        {
-            url: "wss://eu.nodes.testnet.bitshares.ws",
-            region: "TESTNET - Western Europe",
-            country: "Germany",
-            location: "Nuremberg",
-            operator: "Witness: blocksights",
-            contact: "telegram:blocksights"
-        },
+        //{
+        //    url: "wss://eu.nodes.testnet.bitshares.ws",
+        //    region: "TESTNET - Western Europe",
+        //    country: "Germany",
+        //    location: "Nuremberg",
+        //    operator: "Witness: blocksights",
+        //    contact: "telegram:blocksights"
+        //},
         {
             url: "wss://testnet.dex.trading/",
             region: "TESTNET - Western Europe",
@@ -251,13 +251,13 @@ export const settingsAPIs = {
         }
     ],
     ES_WRAPPER_LIST: [
-        {
-            url: "https://api.bitshares.ws/openexplorer",
-            region: "Western Europe",
-            country: "Germany",
-            operator: "blocksights.info",
-            contact: "telegram:blocksights"
-        }
+        //{
+        //    url: "https://api.bitshares.ws/openexplorer",
+        //    region: "Western Europe",
+        //    country: "Germany",
+        //    operator: "blocksights.info",
+        //    contact: "telegram:blocksights"
+        //}
     ],
     DEFAULT_FAUCET: getFaucet().url,
     TESTNET_FAUCET: getTestFaucet().url
