@@ -145,7 +145,7 @@ export const settingsAPIs = {
             contact: "email:admin@iobanker.com"
         },
         {
-            url: "wss://api.bts.mobi/ws",
+            url: "wss://api.bitshares.dev/ws",
             region: "Northern America",
             country: "U.S.A.",
             location: "Virginia",
