@@ -273,8 +273,8 @@ class AccountPools extends React.Component {
                     a.share_asset_str > b.share_asset_str
                         ? 1
                         : a.share_asset_str < b.share_asset_str
-                            ? -1
-                            : 0
+                        ? -1
+                        : 0
             },
             {
                 key: "asset_a_str",
@@ -293,8 +293,8 @@ class AccountPools extends React.Component {
                     a.asset_a_str > b.asset_a_str
                         ? 1
                         : a.asset_a_str < b.asset_a_str
-                            ? -1
-                            : 0
+                        ? -1
+                        : 0
             },
             {
                 key: "asset_a_qty",
@@ -321,8 +321,8 @@ class AccountPools extends React.Component {
                     a.asset_b_str > b.asset_b_str
                         ? 1
                         : a.asset_b_str < b.asset_b_str
-                            ? -1
-                            : 0
+                        ? -1
+                        : 0
             },
             {
                 key: "asset_b_qty",
@@ -570,30 +570,27 @@ class AccountPoolsStoreWrapper extends React.Component {
     }
 }
 
-export default connect(
-    AccountPoolsStoreWrapper,
-    {
-        listenTo() {
-            return [PoolmartStore, AssetStore];
-        },
-        getProps(props) {
-            let assets = Map(),
-                assetsList = List();
-            if (props.account.get("assets", []).size) {
-                props.account.get("assets", []).forEach(id => {
-                    assetsList = assetsList.push(id);
-                });
-            }
-            let liquidityPools = PoolmartStore.getState().liquidityPools;
-            assets = AssetStore.getState().assets;
-            return {
-                liquidityPools: PoolmartStore.getState().liquidityPools,
-                liquidityPoolsLoading: PoolmartStore.getState()
-                    .liquidityPoolsLoading,
-                lastPoolId: PoolmartStore.getState().lastPoolId,
-                assets: assets,
-                assetsList: assetsList
-            };
+export default connect(AccountPoolsStoreWrapper, {
+    listenTo() {
+        return [PoolmartStore, AssetStore];
+    },
+    getProps(props) {
+        let assets = Map(),
+            assetsList = List();
+        if (props.account.get("assets", []).size) {
+            props.account.get("assets", []).forEach(id => {
+                assetsList = assetsList.push(id);
+            });
         }
+        let liquidityPools = PoolmartStore.getState().liquidityPools;
+        assets = AssetStore.getState().assets;
+        return {
+            liquidityPools: PoolmartStore.getState().liquidityPools,
+            liquidityPoolsLoading: PoolmartStore.getState()
+                .liquidityPoolsLoading,
+            lastPoolId: PoolmartStore.getState().lastPoolId,
+            assets: assets,
+            assetsList: assetsList
+        };
     }
-);
+});

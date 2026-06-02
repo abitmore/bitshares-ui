@@ -299,7 +299,7 @@ class Exchange extends React.Component {
         let ws = props.viewSettings;
         let {ask, bid} = this._initialOrderState(props);
 
-        let chart_height = ws.get("chartHeight", 620);
+        let chart_height = ws.get("chartHeight", 425);
         if (chart_height == 620 && window.innerWidth < 640) {
             // assume user is on default setting, use smaller for mobile
             chart_height = 425;
@@ -350,7 +350,7 @@ class Exchange extends React.Component {
             chartType: ws.get("chartType", "price_chart"),
             chartHeight: chart_height,
             chartZoom: ws.get("chartZoom", true),
-            chartTools: ws.get("chartTools", false),
+            chartTools: ws.get("chartTools", true),
             hideFunctionButtons: ws.get("hideFunctionButtons", true),
             currentPeriod: ws.get("currentPeriod", 3600 * 24 * 30 * 3), // 3 months
             showMarketPicker: false,

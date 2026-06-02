@@ -259,6 +259,7 @@ export const settingsAPIs = {
         //    contact: "telegram:blocksights"
         //}
     ],
+    ES_WRAPPER_LIST: [],
     DEFAULT_FAUCET: getFaucet().url,
     TESTNET_FAUCET: getTestFaucet().url
 };

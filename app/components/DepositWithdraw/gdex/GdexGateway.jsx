@@ -77,8 +77,6 @@ class GdexGateway extends React.Component {
         let firstTimeCoinName = null;
         if (state.action == "deposit") {
             firstTimeCoinName = "BTC";
-        } else {
-            firstTimeCoinName = "GDEX.BTC";
         }
         let firstTimeCoinId = 1002;
         let activeCoinName = cachedCoinName
@@ -623,17 +621,14 @@ class GdexGateway extends React.Component {
     }
 }
 
-export default connect(
-    GdexGateway,
-    {
-        listenTo() {
-            return [SettingsStore];
-        },
-        getProps() {
-            return {
-                viewSettings: SettingsStore.getState().viewSettings,
-                settings: SettingsStore.getState().settings
-            };
-        }
+export default connect(GdexGateway, {
+    listenTo() {
+        return [SettingsStore];
+    },
+    getProps() {
+        return {
+            viewSettings: SettingsStore.getState().viewSettings,
+            settings: SettingsStore.getState().settings
+        };
     }
-);
+});

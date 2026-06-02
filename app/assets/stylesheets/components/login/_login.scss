@@ -298,3 +298,30 @@
         }
     }
 }
+
+.password-eye {
+    float: right;
+    margin-top: -25px;
+    margin-right: 10px;
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+}
+
+.input-password-eye {
+    float: right;
+    margin-top: -30px;
+    margin-right: 10px;
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+}
+
+.confirm-password-eye {
+    float: right;
+    margin-top: -28px;
+    margin-right: 10px;
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+}

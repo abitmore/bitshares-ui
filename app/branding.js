@@ -24,7 +24,7 @@ function _isTestnet() {
  * @returns {string}
  */
 export function getWalletName() {
-    return "BitShares";
+    return "Evraz";
 }
 
 /**
@@ -32,7 +32,7 @@ export function getWalletName() {
  * @returns {string}
  */
 export function getWalletURL() {
-    return "https://wallet.bitshares.org";
+    return "https://evrazdex.org";
 }
 
 /**
@@ -42,10 +42,10 @@ export function getWalletURL() {
  */
 export function getFaucet() {
     return {
-        url: "https://faucet.bitshares.eu/onboarding", // 2017-12-infrastructure worker proposal
+        url: "https://faucet-evrazdex.org", // 2017-12-infrastructure worker proposal
         show: true,
         editable: false,
-        referrer: "onboarding.bitshares.foundation"
+        referrer: "evraz"
     };
 }
 
@@ -63,7 +63,12 @@ export function getTestFaucet() {
  * @returns {*}
  */
 export function getLogo() {
-    return require("assets/logo-ico-blue.png").default;
+    return require("assets/evraz_big.png").default;
+    // return "/assets/evraz_big.png";
+}
+
+export function getSmallLogo() {
+    return require("assets/evraz_small.png").default;
 }
 
 /**
@@ -72,7 +77,7 @@ export function getLogo() {
  */
 export function getDefaultTheme() {
     // possible ["darkTheme", "lightTheme", "midnightTheme"]
-    return "darkTheme";
+    return "midnightTheme";
 }
 
 /**
@@ -93,14 +98,14 @@ export function getUnits() {
     if (_isTestnet()) {
         return ["TEST"];
     }
-    return ["BTS", "USD", "CNY", "BTC", "EUR", "GBP"];
+    return ["EVRAZ", "BTS", "USD", "CNY", "BTC", "EUR", "GBP", "RUBLE"];
 }
 
 export function getDefaultMarket() {
     if (_isTestnet()) {
         return "USD_TEST";
     }
-    return "BTS_CNY";
+    return "EVRAZ_BTS";
 }
 
 /**
@@ -112,7 +117,22 @@ export function getMyMarketsBases() {
     if (_isTestnet()) {
         return ["TEST"];
     }
-    return ["BTS", "BTC", "CNY", "USD", "USDT", "ETH"];
+    return [
+        "EVRAZ",
+        "BTS",
+        "EUR",
+        "RUBLE",
+        "GBP",
+        "CNY",
+        "JPY",
+        "XBTSX.BTC",
+        "USDIGI",
+        "EUROLUX",
+        "ALTIN",
+        "ALTIN.TRY",
+        "ALTIN.RUB",
+        "LEPTA"
+    ];
 }
 
 /**
@@ -126,6 +146,7 @@ export function getMyMarketsQuotes() {
     }
     let tokens = {
         nativeTokens: [
+            "EVRAZ",
             "BTC",
             "BTC1.0",
             "BTS",
@@ -140,156 +161,19 @@ export function getMyMarketsQuotes() {
             "SILVER",
             "SILVER1.0",
             "USD",
-            "USD1.0"
+            "USD1.0",
+            "USDIGI",
+            "GBP",
+            "JPY",
+            "EUROLUX",
+            "ALTIN",
+            "ALTIN.TRY",
+            "ALTIN.RUB"
         ],
-        gdexTokens: [
-            "GDEX.BTC",
-            "GDEX.BTO",
-            "GDEX.EOS",
-            "GDEX.ETH",
-            "GDEX.BKBT",
-            "GDEX.GXC",
-            "GDEX.SEER",
-            "GDEX.FOTA",
-            "GDEX.JRC",
-            "GDEX.EOSDAC",
-            "GDEX.MTS",
-            "GDEX.GUSD",
-            "GDEX.IQ",
-            "GDEX.NULS",
-            "GDEX.USDT"
-        ],
+        gdexTokens: [],
         openledgerTokens: [],
         rudexTokens: [],
-        piratecashTockens: [
-            "PIRATE.PIRATE",
-            "PIRATE.BTC",
-            "PIRATE.LTC",
-            "PIRATE.BCC",
-            "PIRATE.DOGE",
-            "PIRATE.COSA"
-        ],
-        xbtsxTokens: [
-            "XBTSX.STH",
-            "XBTSX.POST",
-            "XBTSX.DOGE",
-            "XBTSX.BTC",
-            "XBTSX.LTC",
-            "XBTSX.DASH",
-            "XBTSX.BTG",
-            "XBTSX.NVC",
-            "XBTSX.42",
-            "XBTSX.NMC",
-            "XBTSX.WAVES",
-            "XBTSX.ETH",
-            "XBTSX.ONION",
-            "XBTSX.EGC",
-            "XBTSX.BCH",
-            "XBTSX.MDL",
-            "XBTSX.SKY",
-            "XBTSX.SLB",
-            "XBTSX.GRS",
-            "XBTSX.XSM",
-            "XBTSX.XBB",
-            "XBTSX.EXR",
-            "XBTSX.BCCX",
-            "XBTSX.GUAP",
-            "XBTSX.AXAI",
-            "XBTSX.TUSD",
-            "XBTSX.USDT",
-            "XBTSX.RVN",
-            "XBTSX.TRD",
-            "XBTSX.SCH",
-            "XBTSX.USDN",
-            "XBTSX.FIL",
-            "XBTSX.EOS",
-            "XBTSX.RUB",
-            "XBTSX.USD",
-            "XBTSX.EUR",
-            "XBTSX.VTC",
-            "XBTSX.USDC",
-            "XBTSX.BAT",
-            "XBTSX.PING",
-            "XBTSX.ATRI",
-            "XBTSX.BNB",
-            "XBTSX.BUSD",
-            "XBTSX.TRX",
-            "XBTSX.HT",
-            "XBTSX.XRP",
-            "XBTSX.SHU",
-            "XBTSX.UNI",
-            "XBTSX.HIVE",
-            "XBTSX.EMC",
-            "XBTSX.NESS",
-            "XBTSX.PPC",
-            "XBTSX.SHIB",
-            "XBTSX.HBD",
-            "XBTSX.PIVX",
-            "XBTSX.AVAX",
-            "XBTSX.RTM",
-            "XBTSX.XAUT",
-            "XBTSX.TUSC",
-            "XBTSX.MATIC",
-            "XBTSX.HVQ",
-            "XBTSX.TCG",
-            "XBTSX.NCH",
-            "XBTSX.LUNR",
-            "XBTSX.LUNAREUM"
-        ],
-        honestTokens: [
-            "HONEST",
-            "HONEST.MONEY",
-            "HONEST.AGORISM",
-            "HONEST.DEV",
-            "HONEST.CNY",
-            "HONEST.USD",
-            "HONEST.BTC",
-            "HONEST.XAU",
-            "HONEST.XAG",
-            "HONEST.ETH",
-            "HONEST.XRP",
-            "HONEST.XRP1",
-            "HONEST.ETH1",
-            "HONEST.USDSHORT",
-            "HONEST.BTCSHORT",
-            "HONEST.ADA",
-            "HONEST.DOT",
-            "HONEST.LTC",
-            "HONEST.SOL",
-            "HONEST.XMR",
-            "HONEST.ATOM",
-            "HONEST.XLM",
-            "HONEST.ALGO",
-            "HONEST.FIL",
-            "HONEST.EOS",
-            "HONEST.RUB",
-            "HONEST.EUR",
-            "HONEST.GBP",
-            "HONEST.JPY",
-            "HONEST.KRW",
-            "HONEST.ADASHORT",
-            "HONEST.DOTSHORT",
-            "HONEST.LTCSHORT",
-            "HONEST.SOLSHORT",
-            "HONEST.XMRSHORT",
-            "HONEST.ATOMSHORT",
-            "HONEST.XLMSHORT",
-            "HONEST.ALGOSHORT",
-            "HONEST.FILSHORT",
-            "HONEST.EOSSHORT",
-            "HONEST.RUBSHORT",
-            "HONEST.EURSHORT",
-            "HONEST.GBPSHORT",
-            "HONEST.JPYSHORT",
-            "HONEST.KRWSHORT",
-            "HONEST.XRPSHORT",
-            "HONEST.ETHSHORT",
-            "HONEST.XAUSHORT",
-            "HONEST.XAGSHORT",
-            "HONEST.CNYSHORT"
-        ],
-        ioxbankTokens: ["IOB.XRP", "IOB.XLM"],
-        otherTokens: ["CVCOIN", "HERO", "OCT", "HERTZ", "YOYOW"]
+        xbtsxTokens: ["XBTSX.BTC", "XBTSX.USDT", "XBTSX.HIVE", "XBTSX.EOS"]
     };
 
     let allTokens = [];
@@ -309,116 +193,35 @@ export function getFeaturedMarkets(quotes = []) {
         return [["USD", "TEST"]];
     }
     return [
+        ["EVRAZ", "BTS"],
+        ["EVRAZ", "RUBLE"],
+        ["EVRAZ", "EUR"],
+        ["EVRAZ", "CNY"],
+        ["EVRAZ", "RUDEX.BTC"],
+        ["EVRAZ", "XBTSX.BTC"],
+        ["EVRAZ", "CRUDE.NGN"],
         ["USD", "BTS"],
         ["USD", "GOLD"],
-        ["USD", "HERO"],
-        ["USD", "GDEX.BTC"],
-        ["USD", "GDEX.ETH"],
-        ["USD", "GDEX.EOS"],
-        ["USD", "GDEX.BTO"],
-        ["USD", "HONEST.BTC"],
-        ["USD", "HONEST.USD"],
-        ["USD", "HONEST.BTCSHORT"],
-        ["USD", "HONEST.USDSHORT"],
-        ["USD", "HERTZ"],
         ["USD", "URTHR"],
         ["USD", "SKULD"],
         ["USD", "VERTHANDI"],
         ["CNY", "BTS"],
         ["CNY", "USD"],
-        ["CNY", "YOYOW"],
-        ["CNY", "OCT"],
-        ["CNY", "GDEX.BTC"],
-        ["CNY", "GDEX.ETH"],
-        ["CNY", "GDEX.EOS"],
-        ["CNY", "GDEX.BTO"],
-        ["CNY", "GDEX.SEER"],
-        ["CNY", "GDEX.BKBT"],
-        ["CNY", "GDEX.USDT"],
-        ["CNY", "GDEX.GXC"],
-        ["CNY", "HONEST.BTC"],
-        ["CNY", "HONEST.USD"],
-        ["CNY", "HONEST.BTCSHORT"],
-        ["CNY", "HONEST.USDSHORT"],
-        ["CNY", "HONEST.CNY"],
-        ["CNY", "HERTZ"],
         ["CNY", "URTHR"],
         ["CNY", "SKULD"],
         ["CNY", "VERTHANDI"],
         ["BTS", "RUBLE"],
-        ["BTS", "HERO"],
-        ["BTS", "OCT"],
         ["BTS", "SILVER"],
         ["BTS", "GOLD"],
-        ["BTS", "GDEX.BTC"],
-        ["BTS", "GDEX.ETH"],
-        ["BTS", "GDEX.EOS"],
-        ["BTS", "GDEX.BTO"],
-        ["BTS", "GDEX.USDT"],
         ["BTS", "XBTSX.BTC"],
-        ["BTS", "XBTSX.ETH"],
-        ["BTS", "XBTSX.EUR"],
-        ["BTS", "XBTSX.RUB"],
-        ["BTS", "XBTSX.STH"],
-        ["BTS", "XBTSX.TUSD"],
-        ["BTS", "XBTSX.WAVES"],
-        ["BTS", "XBTSX.USD"],
-        ["BTS", "XBTSX.USDC"],
-        ["BTS", "XBTSX.USDN"],
         ["BTS", "XBTSX.USDT"],
-        ["BTS", "HONEST"],
-        ["BTS", "HONEST.MONEY"],
-        ["BTS", "HONEST.AGORISM"],
-        ["BTS", "HONEST.DEV"],
-        ["BTS", "HONEST.CNY"],
-        ["BTS", "HONEST.USD"],
-        ["BTS", "HONEST.BTC"],
-        ["BTS", "HONEST.XAU"],
-        ["BTS", "HONEST.XAG"],
-        ["BTS", "HONEST.ETH"],
-        ["BTS", "HONEST.XRP"],
-        ["BTS", "HONEST.XRP1"],
-        ["BTS", "HONEST.ETH1"],
-        ["BTS", "HONEST.USDSHORT"],
-        ["BTS", "HONEST.BTCSHORT"],
-        ["BTS", "HONEST.ADA"],
-        ["BTS", "HONEST.DOT"],
-        ["BTS", "HONEST.LTC"],
-        ["BTS", "HONEST.SOL"],
-        ["BTS", "HONEST.XMR"],
-        ["BTS", "HONEST.ATOM"],
-        ["BTS", "HONEST.XLM"],
-        ["BTS", "HONEST.ALGO"],
-        ["BTS", "HONEST.FIL"],
-        ["BTS", "HONEST.EOS"],
-        ["BTS", "HONEST.RUB"],
-        ["BTS", "HONEST.EUR"],
-        ["BTS", "HONEST.GBP"],
-        ["BTS", "HONEST.JPY"],
-        ["BTS", "HONEST.KRW"],
-        ["BTS", "HONEST.ADASHORT"],
-        ["BTS", "HONEST.DOTSHORT"],
-        ["BTS", "HONEST.LTCSHORT"],
-        ["BTS", "HONEST.SOLSHORT"],
-        ["BTS", "HONEST.XMRSHORT"],
-        ["BTS", "HONEST.ATOMSHORT"],
-        ["BTS", "HONEST.XLMSHORT"],
-        ["BTS", "HONEST.ALGOSHORT"],
-        ["BTS", "HONEST.FILSHORT"],
-        ["BTS", "HONEST.EOSSHORT"],
-        ["BTS", "HONEST.RUBSHORT"],
-        ["BTS", "HONEST.EURSHORT"],
-        ["BTS", "HONEST.GBPSHORT"],
-        ["BTS", "HONEST.JPYSHORT"],
-        ["BTS", "HONEST.KRWSHORT"],
-        ["BTS", "HONEST.XRPSHORT"],
-        ["BTS", "HONEST.ETHSHORT"],
-        ["BTS", "HONEST.XAUSHORT"],
-        ["BTS", "HONEST.XAGSHORT"],
-        ["BTS", "HONEST.CNYSHORT"],
-        ["BTS", "IOB.XRP"],
-        ["BTS", "IOB.XLM"],
-        ["BTS", "HERTZ"],
+        ["EVRAZ", "BTS"],
+        ["EVRAZ", "RUBLE"],
+        ["EVRAZ", "EUR"],
+        ["EVRAZ", "CNY"],
+        ["EVRAZ", "RUDEX.BTC"],
+        ["EVRAZ", "XBTSX.BTC"],
+        ["EVRAZ", "CRUDE.NGN"]["BTS"],
         ["BTS", "URTHR"],
         ["BTS", "SKULD"],
         ["BTS", "VERTHANDI"]
@@ -437,7 +240,7 @@ export function getAssetNamespaces() {
     if (_isTestnet()) {
         return [];
     }
-    return ["XBTSX.", "GDEX.", "HONEST.", "IOB.", "PIRATE."];
+    return ["XBTSX.", "GDEX.", "IOB.", "PIRATE."];
 }
 
 /**

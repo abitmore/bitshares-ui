@@ -239,8 +239,8 @@ class LiquidityPools extends React.Component {
                     a.share_asset_str > b.share_asset_str
                         ? 1
                         : a.share_asset_str < b.share_asset_str
-                            ? -1
-                            : 0
+                        ? -1
+                        : 0
             },
             {
                 key: "asset_a_str",
@@ -259,8 +259,8 @@ class LiquidityPools extends React.Component {
                     a.asset_a_str > b.asset_a_str
                         ? 1
                         : a.asset_a_str < b.asset_a_str
-                            ? -1
-                            : 0
+                        ? -1
+                        : 0
             },
             {
                 key: "asset_a_qty",
@@ -287,8 +287,8 @@ class LiquidityPools extends React.Component {
                     a.asset_b_str > b.asset_b_str
                         ? 1
                         : a.asset_b_str < b.asset_b_str
-                            ? -1
-                            : 0
+                        ? -1
+                        : 0
             },
             {
                 key: "asset_b_qty",
@@ -460,19 +460,16 @@ class LiquidityPoolsStoreWrapper extends React.Component {
     }
 }
 
-export default connect(
-    LiquidityPoolsStoreWrapper,
-    {
-        listenTo() {
-            return [PoolmartStore];
-        },
-        getProps() {
-            return {
-                liquidityPools: PoolmartStore.getState().liquidityPools,
-                liquidityPoolsLoading: PoolmartStore.getState()
-                    .liquidityPoolsLoading,
-                lastPoolId: PoolmartStore.getState().lastPoolId
-            };
-        }
+export default connect(LiquidityPoolsStoreWrapper, {
+    listenTo() {
+        return [PoolmartStore];
+    },
+    getProps() {
+        return {
+            liquidityPools: PoolmartStore.getState().liquidityPools,
+            liquidityPoolsLoading: PoolmartStore.getState()
+                .liquidityPoolsLoading,
+            lastPoolId: PoolmartStore.getState().lastPoolId
+        };
     }
-);
+});

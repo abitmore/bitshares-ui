@@ -107,20 +107,17 @@ class CreditRightsList extends React.Component {
     }
 }
 
-CreditRightsList = connect(
-    CreditRightsList,
-    {
-        listenTo() {
-            return [AccountStore, CreditOfferStore];
-        },
-        getProps(props) {
-            return {
-                currentAccount: AccountStore.getState().currentAccount,
-                passwordAccount: AccountStore.getState().passwordAccount,
-                dealsByOfferOwner: CreditOfferStore.getState().dealsByOfferOwner
-            };
-        }
+CreditRightsList = connect(CreditRightsList, {
+    listenTo() {
+        return [AccountStore, CreditOfferStore];
+    },
+    getProps(props) {
+        return {
+            currentAccount: AccountStore.getState().currentAccount,
+            passwordAccount: AccountStore.getState().passwordAccount,
+            dealsByOfferOwner: CreditOfferStore.getState().dealsByOfferOwner
+        };
     }
-);
+});
 
 export default CreditRightsList;

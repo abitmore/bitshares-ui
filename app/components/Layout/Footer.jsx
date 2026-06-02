@@ -84,7 +84,7 @@ class Footer extends React.Component {
         this.checkNewVersionAvailable.call(this);
 
         this.downloadLink =
-            "https://github.com/bitshares/bitshares-ui/releases/latest";
+            "https://github.com/evraz-org/evraz-gui/releases/latest";
 
         let ensure = this._ensureConnectivity.bind(this);
         ifvisible.on("wakeup", function() {
@@ -113,7 +113,7 @@ class Footer extends React.Component {
     checkNewVersionAvailable() {
         if (__ELECTRON__) {
             fetch(
-                "https://api.github.com/repos/bitshares/bitshares-ui/releases/latest"
+                "https://api.github.com/repos/evraz-org/evraz-gui/releases/latest"
             )
                 .then(res => {
                     return res.json();
@@ -125,7 +125,7 @@ class Footer extends React.Component {
                         let isReleaseCandidate =
                             APP_VERSION.indexOf("rc") !== -1;
                         if (!isReleaseCandidate && oldVersion !== newVersion) {
-                            this.setState({newVersion});
+                            this.setState({oldVersion});
                         }
                     }.bind(this)
                 );
