@@ -125,7 +125,7 @@ class EditModal extends React.Component {
             account: ChainStore.getAccount(itemData.owner_account, false),
             amount: asset.getAmount({real: true}),
             balanceAmount: asset.getAmount({real: true}),
-            totalBalanceAmount: totalBalanceAsset.getAmount({ real: true }),
+            totalBalanceAmount: totalBalanceAsset.getAmount({real: true}),
             asset_id: itemData.asset_type,
             asset: null,
             error: null,
@@ -277,11 +277,11 @@ class EditModal extends React.Component {
             if (typeof pawn_asset !== "object") {
                 pawn_asset = ChainStore.getAsset(pawn_asset);
             }
-            let found = pawn_assets.find((asset) => {
-                return asset.asset_id === pawn_asset.get('id')
-            })
-            if(found) {
-                found.setAmount({ real: pawn_price })
+            let found = pawn_assets.find(asset => {
+                return asset.asset_id === pawn_asset.get("id");
+            });
+            if (found) {
+                found.setAmount({real: pawn_price});
             } else {
                 pawn_assets.push(
                     new Asset({
@@ -441,17 +441,22 @@ class EditModal extends React.Component {
         let opData;
 
         try {
-            const updatedBalance = (totalBalanceAmount + (parseInt(amount) - parseInt(balanceAmount)))
-            
-            if(parseInt(min_loan) > updatedBalance) {
+            const updatedBalance =
+                totalBalanceAmount +
+                (parseInt(amount) - parseInt(balanceAmount));
+
+            if (parseInt(min_loan) > updatedBalance) {
                 throw new Error(
-                    counterpart.translate('credit_offer.min_loan_bigger_than_balance', {
-                        min: min_loan,
-                        balance: updatedBalance.toFixed(4)
-                    })
-                )
+                    counterpart.translate(
+                        "credit_offer.min_loan_bigger_than_balance",
+                        {
+                            min: min_loan,
+                            balance: updatedBalance.toFixed(4)
+                        }
+                    )
+                );
             }
-            
+
             let asset_precision = ChainStore.getAsset(asset_id).get(
                 "precision"
             );
@@ -499,7 +504,7 @@ class EditModal extends React.Component {
                 }),
                 fee_asset: feeAmount
             };
-            
+
             if (opData.delta_amount.getAmount({real: true}) === 0) {
                 delete opData.delta_amount;
             }
@@ -511,11 +516,12 @@ class EditModal extends React.Component {
                     console.error(err);
                 });
         } catch (err) {
-            
-            if(err.toString().indexOf('overflow') >= 0) {
+            if (err.toString().indexOf("overflow") >= 0) {
                 this.setState({
-                    submitErr: counterpart.translate('credit_offer.number_is_to_big')
-                })
+                    submitErr: counterpart.translate(
+                        "credit_offer.number_is_to_big"
+                    )
+                });
             } else {
                 this.setState({
                     submitErr: err.toString()

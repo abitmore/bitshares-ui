@@ -188,7 +188,8 @@ class XbtsFiat extends React.Component {
                             onChange={this.onSelectProvider.bind(this)}
                         />
                         <label htmlFor="payeer">
-                            PAYEER {asset.substr(6, 3)}(FEE 2%)
+                            PAYEER {asset.substr(6, 3)}
+                            (FEE 2%)
                         </label>
                         <small>max. {max}</small>
 
@@ -212,7 +213,8 @@ class XbtsFiat extends React.Component {
                             onChange={this.onSelectProvider.bind(this)}
                         />
                         <label htmlFor="card">
-                            Visa/Master {asset.substr(6, 3)}(5$ + 5%)
+                            Visa/Master {asset.substr(6, 3)}
+                            (5$ + 5%)
                         </label>
                         <small>max. {max}</small>
                     </p>

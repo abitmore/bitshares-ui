@@ -191,11 +191,11 @@ class CreateModal extends React.Component {
             if (typeof pawn_asset !== "object") {
                 pawn_asset = ChainStore.getAsset(pawn_asset);
             }
-            let found = pawn_assets.find((asset) => {
-                return asset.asset_id === pawn_asset.get('id')
-            })
-            if(found) {
-                found.setAmount({ real: pawn_price })
+            let found = pawn_assets.find(asset => {
+                return asset.asset_id === pawn_asset.get("id");
+            });
+            if (found) {
+                found.setAmount({real: pawn_price});
             } else {
                 pawn_assets.push(
                     new Asset({
@@ -333,7 +333,7 @@ class CreateModal extends React.Component {
 
     _onSubmit() {
         this.setState({
-            createOfferError: null,
+            createOfferError: null
         });
         let {
             account,
@@ -349,17 +349,20 @@ class CreateModal extends React.Component {
         } = this.state;
         let asset = ChainStore.getAsset(asset_id);
         let opData;
-        
+
         try {
-            if(parseInt(min_loan) > parseInt(amount)) {
+            if (parseInt(min_loan) > parseInt(amount)) {
                 throw new Error(
-                    counterpart.translate('credit_offer.min_loan_bigger_than_balance', {
-                        min: min_loan,
-                        balance: amount
-                    })
-                )
+                    counterpart.translate(
+                        "credit_offer.min_loan_bigger_than_balance",
+                        {
+                            min: min_loan,
+                            balance: amount
+                        }
+                    )
+                );
             }
-            
+
             opData = {
                 owner_account: account.get("id"),
                 asset_type: asset_id,
@@ -405,25 +408,27 @@ class CreateModal extends React.Component {
                 fee_asset: feeAmount
             };
             CreditOfferActions.create(opData)
-            .then(() => {
-                this.hideModal();
-            })
-            .catch(err => {
-                // todo: visualize error somewhere
-                console.error(err);
-                this.setState({
-                    createOfferError: err.toString()
+                .then(() => {
+                    this.hideModal();
                 })
-            });
+                .catch(err => {
+                    // todo: visualize error somewhere
+                    console.error(err);
+                    this.setState({
+                        createOfferError: err.toString()
+                    });
+                });
         } catch (err) {
-            if(err.toString().indexOf('overflow') >= 0) {
+            if (err.toString().indexOf("overflow") >= 0) {
                 this.setState({
-                    createOfferError: counterpart.translate('credit_offer.number_is_to_big')
-                })
+                    createOfferError: counterpart.translate(
+                        "credit_offer.number_is_to_big"
+                    )
+                });
             } else {
                 this.setState({
                     createOfferError: err.toString()
-                })
+                });
             }
             return;
         }
@@ -708,8 +713,11 @@ class CreateModal extends React.Component {
                             onChange={this.onFeeChanged.bind(this)}
                             tabIndex={tabIndex++}
                         />
-                        { this.state.createOfferError && (
-                            <Alert message={this.state.createOfferError} type="warning"/>
+                        {this.state.createOfferError && (
+                            <Alert
+                                message={this.state.createOfferError}
+                                type="warning"
+                            />
                         )}
                     </Form>
                 </div>

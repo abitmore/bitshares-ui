@@ -160,7 +160,7 @@ class News extends React.Component {
             return;
         }
         api.getDiscussionsByTrending(query, (err, result) => {
-            if(err) {
+            if (err) {
                 return this.setState({isLoading: false, isWrong: true});
             }
             this.orderDiscussions(result);
@@ -182,13 +182,12 @@ class News extends React.Component {
                             <div className="grid-block vertical">
                                 {isWrong && <SomethingWentWrong />}
                                 {isLoading ? <LoadingIndicator /> : null}
-                                {!isWrong &&
-                                    !isLoading && (
-                                        <NewsTable
-                                            width={width}
-                                            data={discussions}
-                                        />
-                                    )}
+                                {!isWrong && !isLoading && (
+                                    <NewsTable
+                                        width={width}
+                                        data={discussions}
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>

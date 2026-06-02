@@ -9,13 +9,13 @@ function getMD5Digest(file) {
     return hash.toUpperCase();
 }
 
-var outputFileName = "charting_library.17.025.02b61a1c.zip";
+var outputFileName = "charting_library.29.4.0.zip";
 var outputFilePath = path.join(__dirname, outputFileName);
 
 // download only if it doesnt exist
 if (!fs.existsSync(outputFilePath)) {
     const outputFile = fs.createWriteStream(outputFilePath);
-    http.get("https://explorer.bitshares.ws/" + outputFileName, (response) => {
+    http.get("https://blocksights.info/" + outputFileName, (response) => {
         response.pipe(outputFile);
     }).on("error", (err) => {
         console.error("Failed to download charting_library archive");

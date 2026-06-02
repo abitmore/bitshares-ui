@@ -269,7 +269,7 @@ class CreditDebtList extends React.Component {
             );
         }
     }
-    
+
     _renderTotalAmount() {
         let {feeRate, debtAsset, debtAmount, amount, asset} = this.state;
         let fRate = parseFloat(feeRate) / FEE_RATE_DENOM;
@@ -281,8 +281,9 @@ class CreditDebtList extends React.Component {
             });
             let rate = parseFloat(cAsset.getAmount()) / debtAmount;
             let cAmount = fRate * debtAmount * rate;
-            let realFee = cAmount / utils.get_asset_precision(asset.get('precision'))
-            let realRepay = cAsset.getAmount({ real: true })
+            let realFee =
+                cAmount / utils.get_asset_precision(asset.get("precision"));
+            let realRepay = cAsset.getAmount({real: true});
             let realTotal = realFee + realRepay;
             return (
                 <span>
@@ -300,7 +301,7 @@ class CreditDebtList extends React.Component {
             </span>;
         }
     }
-    
+
     _renderFeeRate() {
         let {feeRate, debtAsset, debtAmount, amount, asset} = this.state;
         let fRate = parseFloat(feeRate) / FEE_RATE_DENOM;
