@@ -1,8 +1,8 @@
-BitShares-UI
+EVRAZ-GUI
 ============
 [中文版](README_zh.md)
 
-This is the reference wallet of BitShares Blockchain which connects to BitShares Blockchain nodes (*bitshares-core*).
+This is the reference wallet of EVRAZ which connects to BitShares Blockchain nodes (*bitshares-core*).
 
 This reference wallet is a browser based wallet, which means *your keys are stored locally* in your browser and *never leaves it* while using the wallet. 
 You should *never expose your keys to anyone* as transactions are signed locally before transmitting them to a node.
