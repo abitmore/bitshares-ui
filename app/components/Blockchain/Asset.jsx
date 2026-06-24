@@ -136,7 +136,9 @@ class Asset extends React.Component {
                                     isPredictionMarket
                                 );
                             });
-                            this.setState({callOrders});
+                            setTimeout(() => {
+                                this.setState({callOrders});
+                            }, 50);
                         });
                 } catch (e) {
                     // console.log(err);
@@ -158,7 +160,9 @@ class Asset extends React.Component {
                                     feedPrice
                                 );
                             });
-                            this.setState({collateralBids});
+                            setTimeout(() => {
+                                this.setState({collateralBids});
+                            }, 50);
                         });
                 } catch (e) {
                     console.log("get_collateral_bids Error: ", e);
