@@ -143,16 +143,16 @@ class HelpContent extends React.PureComponent {
         }
 
         if (!value && locale !== "en") {
-            console.warn(
-                `missing path '${this.props.path}' for locale '${locale}' help files, rolling back to 'en'`
-            );
+            //console.warn(
+            //    `missing path '${this.props.path}' for locale '${locale}' help files, rolling back to 'en'`
+            //);
             value = HelpData["en"][this.props.path];
         }
 
         if (!value && this.props.alt_path && locale != "en") {
-            console.warn(
-                `missing alt_path '${this.props.alt_path}' for locale '${locale}' help files, rolling back to 'en'`
-            );
+            //console.warn(
+            //    `missing alt_path '${this.props.alt_path}' for locale '${locale}' help files, rolling back to 'en'`
+            //);
             value = HelpData["en"][this.props.alt_path];
         }
 
